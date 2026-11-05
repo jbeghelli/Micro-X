@@ -23,7 +23,10 @@ El laberinto es fijo y reproduce el mapa de Rally-X (32×56 casillas, transcrito
 - Menú principal: JUGAR, **RÉCORD HISTÓRICO** (editable: Enter, escribes el número, Enter), NIVEL INICIAL y ZOOM. En juego, `+`/`-` cambian el zoom.
 
 ## Controles táctiles
-- En vertical: el juego arriba y, abajo, una **cruceta de 4 botones grandes** y el **botón de humo**. En horizontal los controles se superponen al mapa.
-- **Un toque fija la dirección**: la micro gira hacia ahí en la próxima esquina posible (el toque se recuerda hasta 3 s). También puedes mantener pulsado y deslizar el dedo entre botones.
+Inspirados en Pac-Man (móvil) y Pac-Man 256: la micro avanza sola y tú solo eliges hacia dónde.
+- **Deslizar el dedo** en cualquier parte de la pantalla: gira. El gesto se reconoce al instante y se recuerda hasta que la micro pueda girar (máx. 3 s). El giro en U es inmediato.
+- **Toque corto** en cualquier parte: suelta humo (también hay un botón de humo pequeño en la esquina).
+- **Cruceta (opcional)**: en el menú, `CONTROL < CRUCETA >` muestra 4 botones translúcidos en la esquina.
+- Pantalla completa: el HUD es una barra delgada arriba y el radar una ventana pequeña en la esquina.
 - Para probar los controles táctiles en un computador, abre `index.html?touch`.
 - El radar es minimalista, como el de Rally-X: fondo negro con puntos (amarillo = banderas, rojo = patrullas, verde = bidones, blanco = tu micro).

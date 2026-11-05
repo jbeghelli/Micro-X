@@ -58,5 +58,5 @@ La dirección queda en `https://jbeghelli.github.io/micro-x/`. Cada `git push` a
 
 ## Música
 Opción **MÚSICA** del menú: `EN UN LARGO TOUR` (por defecto), `CUMBIA` o `NO`. Se genera en el dispositivo con WebAudio, sin archivos.
-- `EN UN LARGO TOUR` es una adaptación al sonido tipo Rally-X (onda de pulso para la melodía, bajo triangular y arpegio suave) de la partitura de piano «En un largo tour» (Sol y Lluvia, autor Amaro Labra, ♩=100, Mi menor). **La canción pertenece a sus autores**: si el juego se comparte públicamente, conviene pedirles permiso o reemplazar el tema por una composición propia o de dominio público.
+- `EN UN LARGO TOUR` es una adaptación al sonido tipo Rally-X (onda de pulso para la melodía, bajo triangular y arpegio suave) de «En un largo tour» (Sol y Lluvia; partituras de Amaro Labra y Christopher Romero T., ♩=100, Mi menor; acordes Em · Bm · A · Em · Bm · A · Em). **La canción pertenece a sus autores**: si el juego se comparte públicamente, conviene pedirles permiso o reemplazar el tema por una composición propia o de dominio público.
 - La música se acelera cuando queda poca bencina.

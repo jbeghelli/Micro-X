@@ -229,13 +229,14 @@ const MEL=[69,0,0,72, 0,71,69,0, 67,0,69,0, 0,0,64,0,
            69,0,72,0, 71,0,69,0, 67,0,64,0, 69,0,0,0];
 // --- «En un largo tour» (4/4, ♩=100, Mi menor). Cada evento: [paso de semicorchea, nota MIDI, duración en pasos]
 const TOUR_LEN=112;                                  // 7 compases × 16 semicorcheas
-const TOUR_CH=[[52,55,59],[50,54,57],[45,49,52],[52,55,59],[50,54,57],[45,49,52],[52,55,59]];   // Em D A Em D A Em
+/* Fuentes: partitura de piano (A. Labra) y hoja con cifrado (C. Romero T.) */
+const TOUR_CH=[[52,55,59],[47,50,54],[45,49,52],[52,55,59],[47,50,54],[45,49,52],[52,55,59]];   // Em Bm A Em Bm A Em
 const TOUR_LEAD=(()=>{
   const m=new Array(TOUR_LEN).fill(null), put=(st,n,l)=>{ m[st]=[n,l]; };
   const half=(o,r)=>{ put(o+1,r[0],2); put(o+3,r[0],1); put(o+4,r[1],2); put(o+6,r[2],2); };   // silencio · corchea · semicorchea · corchea · corchea
   [[0,[71,76,79]],[1,[74,78,81]],[2,[69,73,76]],[3,[71,76,79]],[4,[74,78,81]]].forEach(([b,r])=>{ half(b*16,r); half(b*16+8,r); });
   const o=80; put(o+1,69,2); put(o+3,69,1); put(o+4,73,2); put(o+6,76,1); put(o+7,69,2); put(o+9,69,2); put(o+11,69,1); put(o+12,73,2); put(o+14,76,2);   // compás 6
-  put(96,76,15);                                    // compás 7: acorde final
+  put(96,76,8);                                     // compás 7: «mi» en blanca y silencio de blanca
   return m; })();
 const pulseCache={};
 function pulse(d){
@@ -276,7 +277,7 @@ function tourStep(i,t,sd){
   const b=(i/16)|0, s=i&15, ch=TOUR_CH[b], ev=TOUR_LEAD[i];
   if(ev) mTone(pulse(0.25),MF(ev[0]),t,ev[1]*sd*0.94,0.06);                    // melodía: onda de pulso 25 %
   if(b===6){                                                                    // compás final: acorde sostenido
-    if(s===0){ mTone('triangle',MF(ch[0]),t,sd*15,0.15); mTone(pulse(0.5),MF(67),t,sd*14,0.025); mTone(pulse(0.5),MF(71),t,sd*14,0.025); }
+    if(s===0){ mTone('triangle',MF(ch[0]),t,sd*7,0.15); mTone(pulse(0.5),MF(67),t,sd*7,0.025); mTone(pulse(0.5),MF(71),t,sd*7,0.025); }
     return; }
   if(s%4===0) mTone('triangle',MF(ch[0]),t,sd*3,0.15);                          // bajo: raíz en cada tiempo
   if(s%4===2) mTone(pulse(0.5),MF(ch[1+((s>>2)&1)]+12),t,sd*1.7,0.022);        // arpegio suave del acorde

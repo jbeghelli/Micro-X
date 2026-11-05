@@ -153,6 +153,7 @@ const diff = ()=>(level-1)/(MAXL-1);            // 0 (nivel 1) .. 1 (nivel 20)
 let startLevel = 1, menuSel = 0, editBuf = null, camSnap = true, fdt = 0.016;
 function setHi(v){ hi=Math.max(0,Math.min(99999999,v|0)); try{localStorage.setItem('microx_hi',hi);}catch(e){} }
 let VW = 640, VH = 480, LW = 880, LH = 480, CVH = 480, tall = false, RS = 5;
+let lowT = 0, runStats = [], lvStartScore = 0;
 let ctlMode = 0; try{ ctlMode = localStorage.getItem('microx_ctl')==='1'?1:0; }catch(e){}
 function setCtl(v){ ctlMode=v; document.body.classList.toggle('padmode',v===1); try{localStorage.setItem('microx_ctl',v);}catch(e){} }
 let smokeReq = false;
@@ -192,6 +193,7 @@ const sfx = {
   crash: ()=>{beep(200,.6,'sawtooth',.09,-170);},
   clear: ()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.15),i*110));},
   stun:  ()=>{beep(880,.1,'square',.04,-500);},
+  low:   ()=>{beep(520,.10,'square',.05);setTimeout(()=>beep(380,.14,'square',.05),110);},
 };
 
 /* ---------- generación del mapa ---------- */
@@ -218,6 +220,7 @@ function roadTiles(){ const r=[]; for(let y=0;y<H;y++)for(let x=0;x<W;x++) if(!i
 /* ---------- niveles ---------- */
 function setupLevel(n){
   level=n; genMap();
+  runStats[n-1]={pts:0,t:0,fuel:0,deaths:0,smokes:0,stuns:0}; lvStartScore=score; lowT=0;
   baches = new Uint8Array(W*H);
   startTile = {x:16, y:27};
   const road = shuffle(roadTiles());
@@ -358,9 +361,11 @@ const swEnd=e=>{
 };
 cv.addEventListener('pointerup',swEnd); cv.addEventListener('pointercancel',()=>{sw=null;});
 
-function startGame(){ score=0; lives=3; setupLevel(startLevel); go('ready'); }
+function startGame(){ score=0; lives=3; runStats=[]; setupLevel(startLevel); go('ready'); }
+function nextLevel(){ setupLevel(level+1); go('ready'); say('Nivel '+level,1.4); }
 function startIfNeeded(){
   if((state==='over'||state==='win') && stateT>1){ go('title'); }
+  else if(state==='summary' && stateT>0.8){ nextLevel(); }
 }
 const MENU_N = 5;
 function menuActivate(){
@@ -403,7 +408,7 @@ function menuTap(e){
   else menuActivate();
 }
 const MENU_Y=268, MENU_DY=27;
-function go(s){ state=s; stateT=0; document.body.classList.toggle('intitle',s==='title'); }
+function go(s){ state=s; stateT=0; document.body.classList.toggle('intitle',s==='title'||s==='summary'||s==='over'||s==='win'); }
 function say(t,d=1.5){ msg=t; msgT=d; }
 
 /* ---------- movimiento ---------- */
@@ -475,7 +480,7 @@ function finishRun(win){
   go(win?'win':'over');
 }
 function levelClear(){
-  const bonus=Math.round(fuel)*10; score+=bonus;
+  const bonus=Math.round(fuel)*10; const st=runStats[level-1]; if(st) st.fuel=Math.round(fuel); score+=bonus; if(st) st.pts=score-lvStartScore;
   say((level>=MAXL?'¡ÚLTIMO RECORRIDO COMPLETADO!':'¡Recorrido completo!')+'  Bonus bencina +'+bonus,2.4); sfx.clear(); go('clear');
 }
 function updatePlay(dt){
@@ -490,17 +495,20 @@ function updatePlay(dt){
   const k=idx(player.cx,player.cy);
   if(k!==fieldKey){ fieldKey=k; field=bfs(player.cx,player.cy,true); }
   // humo
+  if(fuel<30&&fuel>0){ lowT-=dt; if(lowT<=0){ sfx.low(); lowT=fuel<12?0.55:1.1; } } else lowT=0;
+  { const st=runStats[level-1]; if(st) st.t+=dt; }
   smokeCD-=dt; const wsm=wantSmoke||smokeReq; smokeReq=false;
   if(wsm&&smokeCD<=0&&fuel>=3){
     smokeCD=0.45; fuel-=3; sfx.smoke();
     const p=pos(player), f=player.face;
+    runStats[level-1].smokes++;
     clouds.push({x:p.x-DX[f]*T*0.7,y:p.y-DY[f]*T*0.7,life:3.2,max:3.2});
     for(let i=0;i<10;i++) puffs.push({x:p.x-DX[f]*20,y:p.y-DY[f]*20,vx:(Math.random()-.5)*60,vy:(Math.random()-.5)*60,t:.9,s:10});
   }
   // partículas de escape
   puffT-=dt;
-  if(puffT<=0&&player.dir>=0){ puffT=0.09; const p=pos(player),f=player.face;
-    puffs.push({x:p.x-DX[f]*18,y:p.y-DY[f]*18,vx:-DX[f]*25+(Math.random()-.5)*20,vy:-DY[f]*25+(Math.random()-.5)*20,t:.7,s:5}); }
+  if(puffT<=0&&player.dir>=0){ puffT=fuel<30?0.05:0.09; const p=pos(player),f=player.face;
+    puffs.push({x:p.x-DX[f]*18,y:p.y-DY[f]*18,vx:-DX[f]*25+(Math.random()-.5)*20,vy:-DY[f]*25+(Math.random()-.5)*20,t:.7,s:fuel<30?10:5}); }
   for(const c of clouds) c.life-=dt;
   clouds=clouds.filter(c=>c.life>0);
   invuln=Math.max(0,invuln-dt);
@@ -511,7 +519,7 @@ function updatePlay(dt){
     if(e.stun>0){ e.stun-=dt; }
     else {
       const ep=pos(e);
-      for(const c of clouds) if(Math.hypot(ep.x-c.x,ep.y-c.y)<T*0.95){ e.stun=3-diff(); sfx.stun(); score+=20; break; }
+      for(const c of clouds) if(Math.hypot(ep.x-c.x,ep.y-c.y)<T*0.95){ e.stun=3-diff(); runStats[level-1].stuns++; sfx.stun(); score+=20; break; }
       if(e.stun<=0) moveEnemy(e,e.speed*dt);
     }
     const ep=pos(e);
@@ -519,7 +527,7 @@ function updatePlay(dt){
   }
 }
 function afterDeath(){
-  lives--; combo=1;
+  lives--; combo=1; if(runStats[level-1]) runStats[level-1].deaths++;
   if(lives<=0){ finishRun(false); return; }
   resetActors(); go('ready'); say('¡Sigue el recorrido!',1.2);
 }
@@ -532,7 +540,7 @@ function frame(now){
   if(state==='ready'){ if(stateT>1.4) go('play'); }
   else if(state==='play') updatePlay(dt);
   else if(state==='dying'){ if(stateT>1.8) afterDeath(); }
-  else if(state==='clear'){ if(stateT>2.8){ if(level>=MAXL) finishRun(true); else { setupLevel(level+1); go('ready'); say('Nivel '+level,1.4); } } }
+  else if(state==='clear'){ if(stateT>2.8){ if(level>=MAXL) finishRun(true); else if(level%3===0) go('summary'); else nextLevel(); } }
   for(const p of puffs){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.s+=dt*14;}
   puffs=puffs.filter(p=>p.t>0);
   for(const f of floaters){f.t-=dt;f.y-=dt*30;}
@@ -597,17 +605,21 @@ function drawTank(x,y){
   ctx.restore();
 }
 function drawMicro(x,y,face,k=K){
-  ctx.save(); ctx.translate(x,y); ctx.scale(k,k); ctx.rotate(face*Math.PI/2);
-  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-17,-8,36,20);
-  ctx.fillStyle='#000'; ctx.fillRect(-19,-11,38,22);                         // contorno
-  ctx.fillStyle='#ffd21a'; ctx.fillRect(-18,-10,36,20);
-  ctx.fillStyle='#111'; ctx.fillRect(-18,-10,32,2); ctx.fillRect(-18,8,32,2);   // franjas negras
-  ctx.fillStyle='#fff08a'; ctx.fillRect(-14,-6,26,12);
-  ctx.fillStyle='#d1a900'; ctx.fillRect(-4,-4,6,8);
-  ctx.fillStyle='#1d2740'; ctx.fillRect(13,-7,4,14); ctx.fillRect(-17,-6,2,12);
-  ctx.fillStyle='#fff'; ctx.fillRect(17,-9,2,3); ctx.fillRect(17,6,2,3);
-  ctx.fillStyle='#d22'; ctx.fillRect(-19,-9,2,3); ctx.fillRect(-19,6,2,3);
-  ctx.save(); ctx.rotate(face===2?Math.PI:0); ctx.fillStyle='#111'; ctx.font='bold 7px "Courier New"'; ctx.textAlign='center'; ctx.fillText('MX',5,2.5); ctx.restore();
+  ctx.save(); ctx.translate(x,y); ctx.scale(k*0.9,k*0.9); ctx.rotate(face*Math.PI/2);
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-19,-9,42,22);
+  ctx.fillStyle='#000'; ctx.fillRect(-22,-12,44,24);                          // contorno
+  ctx.fillStyle='#ffd21a'; ctx.fillRect(-21,-11,42,22);
+  ctx.fillStyle='#111'; ctx.fillRect(-21,-11,37,2); ctx.fillRect(-21,9,37,2);   // franjas negras
+  ctx.fillStyle='#fff08a'; ctx.fillRect(-18,-7,34,14);                        // techo
+  ctx.fillStyle='#1d2740'; ctx.fillRect(16,-8,4,16); ctx.fillRect(-20,-7,2,14);  // parabrisas y luneta
+  ctx.fillStyle='#fff'; ctx.fillRect(20,-10,2,3); ctx.fillRect(20,7,2,3);
+  ctx.fillStyle='#d22'; ctx.fillRect(-22,-10,2,3); ctx.fillRect(-22,7,2,3);
+  // patente grande sobre el techo
+  ctx.fillStyle='#000'; ctx.fillRect(-17,-6,32,12);
+  ctx.fillStyle='#fff'; ctx.fillRect(-16,-5,30,10);
+  ctx.save(); ctx.rotate(face===2?Math.PI:0);
+  ctx.fillStyle='#111'; ctx.font='bold 10px "Courier New"'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('JCBO04',-1,0.5,28); ctx.restore(); ctx.textBaseline='alphabetic';
   ctx.restore();
 }
 function drawCop(x,y,face,stun,k=K){
@@ -772,9 +784,55 @@ function drawTitle(){
   if(!touchUI) ctx.fillText('Flechas / WASD = mover · Espacio / Z = humo · P = pausa · +/- = zoom',400,470);
   ctx.restore();
 }
+function star(x,y,r,on){
+  ctx.fillStyle=on?'#ffd21a':'#3a3f55'; ctx.beginPath();
+  for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, rr=i%2?r*.45:r; ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr); }
+  ctx.closePath(); ctx.fill(); ctx.strokeStyle='#000'; ctx.lineWidth=1.5; ctx.stroke();
+}
+const fmtT=t=>{ t=Math.round(t); return Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); };
+function drawSummary(){
+  const W_=LW, H_=CVH, cx=W_/2;
+  const g=ctx.createLinearGradient(0,0,0,H_); g.addColorStop(0,'#16224f'); g.addColorStop(1,'#0b0c14');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W_,H_);
+  const lv0=Math.max(1,level-2), rows=[];
+  for(let n=lv0;n<=level;n++) if(runStats[n-1]) rows.push([n,runStats[n-1]]);
+  const tot=rows.reduce((a,[,r])=>({pts:a.pts+r.pts,t:a.t+r.t,deaths:a.deaths+r.deaths,smokes:a.smokes+r.smokes,stuns:a.stuns+r.stuns}),{pts:0,t:0,deaths:0,smokes:0,stuns:0});
+  const top=Math.round(Math.max(36,(H_-430)*0.35));
+  ctx.textAlign='center';
+  ctx.fillStyle='#000'; ctx.font='bold '+(tall?26:32)+'px "Courier New"'; ctx.fillText('¡TRAMO COMPLETADO!',cx+2,top+32);
+  ctx.fillStyle='#f6c90e'; ctx.fillText('¡TRAMO COMPLETADO!',cx,top+30);
+  ctx.fillStyle='#cfd6ff'; ctx.font='bold 14px "Courier New"'; ctx.fillText('Niveles '+lv0+' a '+level+' de '+MAXL,cx,top+54);
+  const ns=tot.deaths===0?3:tot.deaths===1?2:1;
+  for(let i=0;i<3;i++) star(cx+(i-1)*44,top+92,17,i<ns);
+  const tw=Math.min(W_-30,460), L=cx-tw/2, yh=top+142;
+  ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(L,yh-18,tw,26*(rows.length+2)+14);
+  ctx.font='bold 11px "Courier New"'; ctx.fillStyle='#f6c90e';
+  ctx.textAlign='left'; ctx.fillText('NIVEL',L+10,yh); ctx.textAlign='right';
+  ctx.fillText('PUNTOS',L+tw*0.52,yh); ctx.fillText('TIEMPO',L+tw*0.76,yh); ctx.fillText('BENC.',L+tw-10,yh);
+  ctx.font='bold 15px "Courier New"';
+  rows.forEach(([n,r],i)=>{ const y=yh+26*(i+1); ctx.fillStyle='#fff';
+    ctx.textAlign='left'; ctx.fillText(String(n),L+10,y); ctx.textAlign='right';
+    ctx.fillText('+'+r.pts,L+tw*0.52,y); ctx.fillText(fmtT(r.t),L+tw*0.76,y); ctx.fillText(r.fuel+'%',L+tw-10,y); });
+  const yt=yh+26*(rows.length+1);
+  ctx.fillStyle='#f6c90e'; ctx.fillRect(L+8,yt-18,tw-16,1);
+  ctx.textAlign='left'; ctx.fillStyle='#ffe98a'; ctx.fillText('TOTAL',L+10,yt+2); ctx.textAlign='right';
+  ctx.fillText('+'+tot.pts,L+tw*0.52,yt+2); ctx.fillText(fmtT(tot.t),L+tw*0.76,yt+2);
+  ctx.textAlign='center'; ctx.font='13px "Courier New"'; ctx.fillStyle='#ccd';
+  const yc=yt+44;
+  ctx.fillText('Humo: '+tot.smokes+'  ·  Patrullas frenadas: '+tot.stuns,cx,yc);
+  ctx.fillText('Choques: '+tot.deaths,cx,yc+20);
+  if(tot.deaths===0){ ctx.fillStyle='#ffe98a'; ctx.fillText('¡Recorrido impecable!',cx,yc+40); ctx.fillStyle='#ccd'; }
+  ctx.fillStyle='#fff'; ctx.font='bold 16px "Courier New"'; ctx.fillText('PUNTAJE  '+String(score).padStart(7,'0'),cx,yc+72);
+  // calle con la micro de paseo
+  const ry=H_-110; ctx.fillStyle='#3b3e45'; ctx.fillRect(0,ry,W_,110);
+  ctx.fillStyle='#d9b92a'; for(let x=-80-((clock*100)%80);x<W_;x+=80) ctx.fillRect(x,ry+62,44,5);
+  drawMicro(((clock*90)%(W_+160))-80,ry+34,0,1.7);
+  if(stateT>0.8&&Math.floor(clock*2)%2){ ctx.fillStyle='#fff'; ctx.font='bold 15px "Courier New"'; ctx.fillText(touchUI?'TOCA PARA SEGUIR':'ENTER PARA SEGUIR',cx,ry-14); }
+}
 function draw(){
   ctx.fillStyle='#000'; ctx.fillRect(0,0,LW,CVH);
   if(state==='title'){ drawTitle(); return; }
+  if(state==='summary'){ drawSummary(); return; }
   const pp=pos(player);
   { const look=(player.dir>=0&&state==='play')?T*1.3:0;
     const tx=Math.max(0,Math.min(W*T-VW,pp.x-VW/2+DX[player.face]*look)), ty=Math.max(0,Math.min(H*T-VH,pp.y-VH/2+DY[player.face]*look));
@@ -792,6 +850,19 @@ function draw(){
     ctx.fillStyle=`rgba(255,240,150,${1-k})`; ctx.beginPath(); ctx.arc(pp.x-camX,pp.y-camY,6+k*22,0,7); ctx.fill();
   } else if(!(invuln>0&&Math.floor(clock*12)%2)) drawMicro(pp.x-camX,pp.y-camY,player.face);
   drawSmoke();
+  if(state==='play'&&fuel<30&&fuel>0){            // aviso sobre la micro
+    const crit=fuel<12, bl=Math.floor(clock*(crit?7:3.5))%2, sx=pp.x-camX, sy=pp.y-camY;
+    const txt=crit?'¡CASI SIN BENCINA!':'¡POCA BENCINA!';
+    ctx.font='bold 11px "Courier New"'; ctx.textAlign='left';
+    const tw=Math.ceil(ctx.measureText(txt).width)+30, bx=Math.max(4,Math.min(VW-tw-4,sx-tw/2)), by=Math.max(tall?52:4,sy-T*0.5-30);
+    ctx.fillStyle=bl?'#c4120a':'#5a0b08'; ctx.fillRect(bx,by,tw,20);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.strokeRect(bx+.5,by+.5,tw-1,19);
+    ctx.fillStyle='#fff'; ctx.fillRect(bx+6,by+4,8,12); ctx.fillStyle='#c4120a'; ctx.fillRect(bx+8,by+6,4,3);   // surtidor
+    ctx.fillStyle='#fff'; ctx.fillRect(bx+14,by+6,3,2); ctx.fillRect(bx+16,by+6,1,7);
+    ctx.fillText(txt,bx+22,by+14);
+    ctx.fillStyle=bl?'#c4120a':'#5a0b08'; ctx.beginPath(); ctx.moveTo(sx-5,by+20); ctx.lineTo(sx+5,by+20); ctx.lineTo(sx,by+27); ctx.fill();
+    if(crit){ ctx.strokeStyle=`rgba(255,40,30,${bl?.55:.15})`; ctx.lineWidth=8; ctx.strokeRect(4,4,VW-8,VH-8); }
+  }
   ctx.font='bold 14px "Courier New"'; ctx.textAlign='center';
   for(const f of floaters){ ctx.fillStyle=`rgba(255,255,255,${Math.min(1,f.t*2)})`; ctx.fillText(f.txt,f.x-camX,f.y-camY-12); }
   if(fuel<=0&&state==='play'){ ctx.fillStyle='#ff5050'; ctx.font='bold 16px "Courier New"'; ctx.fillText('¡SIN BENCINA!',VW/2,40); }
@@ -805,7 +876,7 @@ function draw(){
 }
 requestAnimationFrame(frame);
 // se expone para pruebas
-window.__mx = {get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
+window.__mx = {clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>
 </body>
 </html>

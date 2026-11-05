@@ -30,3 +30,8 @@ Inspirados en Pac-Man (móvil) y Pac-Man 256: la micro avanza sola y tú solo el
 - Pantalla completa: el HUD es una barra delgada arriba y el radar una ventana pequeña en la esquina.
 - Para probar los controles táctiles en un computador, abre `index.html?touch`.
 - El radar es minimalista, como el de Rally-X: fondo negro con puntos (amarillo = banderas, rojo = patrullas, verde = bidones, blanco = tu micro).
+
+## Aviso de bencina y resúmenes
+- Bajo el 30 % de bencina: pitido de alarma, globo «¡POCA BENCINA!» sobre la micro, escape más negro y barra parpadeando. Bajo el 12 %: pitido más rápido, marco rojo en pantalla.
+- Cada 3 niveles aparece una pantalla de **resumen del tramo** (puntos, tiempo y bencina de cada nivel, humo usado, patrullas frenadas, choques y hasta 3 estrellas).
+- La micro lleva la patente **JCBO04** grande sobre el techo.

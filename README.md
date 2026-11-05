@@ -35,3 +35,7 @@ Inspirados en Pac-Man (móvil) y Pac-Man 256: la micro avanza sola y tú solo el
 - Bajo el 30 % de bencina: pitido de alarma, globo «¡POCA BENCINA!» sobre la micro, escape más negro y barra parpadeando. Bajo el 12 %: pitido más rápido, marco rojo en pantalla.
 - Cada 3 niveles aparece una pantalla de **resumen del tramo** (puntos, tiempo y bencina de cada nivel, humo usado, patrullas frenadas, choques y hasta 3 estrellas).
 - La micro lleva la patente **JCBO04** grande sobre el techo.
+
+## Pausa y menú
+- **Botón de pausa** (círculo amarillo arriba a la izquierda) o teclas `P` / `Esc`. La pausa congela todo, incluido el reloj y la bencina, y ofrece REANUDAR o MENÚ PRINCIPAL. El juego se pausa solo si cambias de pestaña o apps.
+- En el menú principal, las filas NIVEL INICIAL, ZOOM y CONTROL tienen flechas `<` y `>`: toca el lado izquierdo para retroceder y el derecho para avanzar (con teclado, ← y →).

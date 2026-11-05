@@ -3,10 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b0c14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Micro-X">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Micro-X</title>
 <style>
   :root{--bg:#0b0c14}
-  html,body{margin:0;height:100%;background:var(--bg);color:#eee;font-family:"Courier New",monospace;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overscroll-behavior:none;-webkit-touch-callout:none;background:var(--bg);color:#eee;font-family:"Courier New",monospace;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
   #wrap{position:fixed;top:0;left:0;width:100vw;height:100vh;overflow:hidden}
   #stage{position:absolute;left:50%;top:50%;transform-origin:center}
   canvas{display:block;image-rendering:pixelated;background:#000}
@@ -939,6 +947,10 @@ function draw(){
   drawHUD();
 }
 requestAnimationFrame(frame);
+addEventListener('contextmenu',e=>e.preventDefault());
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  addEventListener('load',()=>{ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} });
+}
 // se expone para pruebas
 window.__mx = {get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>

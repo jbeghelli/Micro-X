@@ -39,3 +39,9 @@ Inspirados en Pac-Man (móvil) y Pac-Man 256: la micro avanza sola y tú solo el
 ## Pausa y menú
 - **Botón de pausa** (círculo amarillo arriba a la izquierda) o teclas `P` / `Esc`. La pausa congela todo, incluido el reloj y la bencina, y ofrece REANUDAR o MENÚ PRINCIPAL. El juego se pausa solo si cambias de pestaña o apps.
 - En el menú principal, las filas NIVEL INICIAL, ZOOM y CONTROL tienen flechas `<` y `>`: toca el lado izquierdo para retroceder y el derecho para avanzar (con teclado, ← y →).
+
+## Instalar como app (PWA)
+El juego incluye `manifest.webmanifest`, `sw.js` e íconos, así que, servido por **https**, se puede instalar:
+- **iPhone (Safari):** botón Compartir → *Añadir a pantalla de inicio*.
+- **Android (Chrome):** menú ⋮ → *Instalar aplicación* (o *Añadir a pantalla de inicio*).
+Se abre a pantalla completa y funciona sin conexión. Al publicar una versión nueva, cambia `CACHE` en `sw.js` (p. ej. `microx-v2`) para que los celulares la descarguen.

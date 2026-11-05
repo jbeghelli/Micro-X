@@ -62,4 +62,4 @@ Opción **MÚSICA** del menú: `EN UN LARGO TOUR` (por defecto), `CUMBIA` o `NO`
 - La música se acelera cuando queda poca bencina.
 
 ## Patrullas de perfil
-Las radiopatrullas de Carabineros (verde con puertas blancas y barra de luces roja/azul) ahora se ven como la micro: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir.
+Las radiopatrullas de Carabineros (sedán verde con techo blanco, panel blanco en la puerta delantera con el escudo y «CARABINEROS DE CHILE», baliza amarilla en el techo y llantas de aleación, según foto de referencia) ahora se ven como la micro: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir.

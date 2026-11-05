@@ -45,3 +45,7 @@ El juego incluye `manifest.webmanifest`, `sw.js` e íconos, así que, servido po
 - **iPhone (Safari):** botón Compartir → *Añadir a pantalla de inicio*.
 - **Android (Chrome):** menú ⋮ → *Instalar aplicación* (o *Añadir a pantalla de inicio*).
 Se abre a pantalla completa y funciona sin conexión. Al publicar una versión nueva, cambia `CACHE` en `sw.js` (p. ej. `microx-v2`) para que los celulares la descarguen.
+
+### Publicar con GitHub Pages
+Repositorio → *Settings* → *Pages* → *Build and deployment* → Source: **Deploy from a branch** → Branch: `ccr-958f09af-vrjph8`, carpeta `/ (root)` → *Save*.
+La dirección queda en `https://jbeghelli.github.io/micro-x/`. Cada `git push` a esa rama la actualiza.

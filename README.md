@@ -49,3 +49,9 @@ Se abre a pantalla completa y funciona sin conexión. Al publicar una versión n
 ### Publicar con GitHub Pages
 Repositorio → *Settings* → *Pages* → *Build and deployment* → Source: **Deploy from a branch** → Branch: `ccr-958f09af-vrjph8`, carpeta `/ (root)` → *Save*.
 La dirección queda en `https://jbeghelli.github.io/micro-x/`. Cada `git push` a esa rama la actualiza.
+
+## Novedades
+- **Bencina más exigente:** el tanque dura ~50 s en el nivel 1 y ~32 s en el 20 (cada bidón da +30 %). Con el tanque vacío la micro avanza muy lenta y, tras **8 s**, pierdes una vida.
+- **La micro se ve de perfil**, como en el logo: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir (con la patente JCBO04).
+- **Música** chiptune con ritmo de cumbia, generada en el dispositivo (sin archivos). Se acelera cuando queda poca bencina. Botón de silencio junto a la pausa y opción MÚSICA en el menú.
+- **Ajuste de pantalla móvil:** el área de juego usa el tamaño real visible (con barra de Chrome, muescas y barra de gestos).

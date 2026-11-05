@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b0c14">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -40,6 +40,12 @@
   #pausebtn svg{width:22px;height:22px;fill:#f6c90e;display:block;margin:auto}
   #pausebtn .pl{display:none} body.paused #pausebtn .pa{display:none} body.paused #pausebtn .pl{display:block}
   body.ingame #pausebtn{display:block}
+  #mutebtn{display:none;position:absolute;z-index:3;width:44px;height:44px;border-radius:50%;border:2px solid #f6c90e;padding:0;
+    background:rgba(10,12,22,.72);box-shadow:0 3px 6px #0009;touch-action:none;cursor:pointer}
+  #mutebtn svg{width:24px;height:24px;display:block;margin:auto;fill:#f6c90e;stroke:#f6c90e}
+  #mutebtn .sl{display:none;stroke:#ff5a4a;stroke-width:2.4} body.muted #mutebtn .sl{display:block} body.muted #mutebtn .wv{display:none}
+  body.ingame #mutebtn{display:block}
+  body.tall #mutebtn{left:60px;top:54px} body.wide #mutebtn{left:60px;top:8px}
   body.tall #pausebtn{left:8px;top:54px} body.wide #pausebtn{left:8px;top:8px}
   body.paused #pad,body.paused #humo{display:none!important}
 
@@ -61,6 +67,8 @@
     <canvas id="c" width="880" height="480"></canvas>
 
     <button id="pausebtn" aria-label="Pausa"><svg viewBox="0 0 24 24"><rect class="pa" x="6" y="5" width="4" height="14" rx="1"/><rect class="pa" x="14" y="5" width="4" height="14" rx="1"/><path class="pl" d="M7 5l12 7-12 7z"/></svg></button>
+
+    <button id="mutebtn" aria-label="Música"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9z" stroke="none"/><path class="wv" d="M15 8.5a5 5 0 010 7M17.8 6a8.6 8.6 0 010 12" fill="none" stroke-width="2" stroke-linecap="round"/><path class="sl" d="M4 4l16 16"/></svg></button>
 
     <div id="pad">
       <button class="u" data-d="3">▲</button>
@@ -173,7 +181,7 @@ let startLevel = 1, menuSel = 0, editBuf = null, camSnap = true, fdt = 0.016;
 function setHi(v){ hi=Math.max(0,Math.min(99999999,v|0)); try{localStorage.setItem('microx_hi',hi);}catch(e){} }
 let VW = 640, VH = 480, LW = 880, LH = 480, CVH = 480, tall = false, RS = 5;
 let paused = false, pauseSel = 0, pauseBtns = [];
-let lowT = 0, runStats = [], lvStartScore = 0;
+let emptyT = 0, lowT = 0, runStats = [], lvStartScore = 0;
 let ctlMode = 0; try{ ctlMode = localStorage.getItem('microx_ctl')==='1'?1:0; }catch(e){}
 function setCtl(v){ ctlMode=v; document.body.classList.toggle('padmode',v===1); try{localStorage.setItem('microx_ctl',v);}catch(e){} }
 let smokeReq = false;
@@ -206,6 +214,64 @@ function beep(f,d,type='square',v=0.05,slide=0){
   g.gain.setValueAtTime(v,a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);
   o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+d);
 }
+/* ---------- música: chiptune original con ritmo de cumbia (se genera en el dispositivo; no usa archivos) ---------- */
+let musicOn = true; try{ musicOn = localStorage.getItem('microx_music')!=='0'; }catch(e){}
+let mGain=null, nBuf=null, mStep=0, mNext=0, mTimer=null;
+const MF=n=>440*Math.pow(2,(n-69)/12);
+const BASS_R=[45,50,52,45], BASS_F=[52,57,59,52];                 // La menor · Re menor · Mi · La menor
+const MEL=[69,0,0,72, 0,71,69,0, 67,0,69,0, 0,0,64,0,
+           65,0,0,69, 0,67,65,0, 62,0,65,0, 0,0,0,0,
+           64,0,0,68, 0,71,68,0, 64,0,68,0, 0,0,0,0,
+           69,0,72,0, 71,0,69,0, 67,0,64,0, 69,0,0,0];
+function mTone(type,f,t,dur,vol){
+  const a=actx, o=a.createOscillator(), g=a.createGain(); o.type=type; o.frequency.value=f;
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(mGain); o.start(t); o.stop(t+dur+0.03);
+}
+function mNoise(t,dur,vol,type,freq){
+  const a=actx, src=a.createBufferSource(); src.buffer=nBuf;
+  const f=a.createBiquadFilter(); f.type=type; f.frequency.value=freq; const g=a.createGain();
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  src.connect(f); f.connect(g); g.connect(mGain); src.start(t); src.stop(t+dur+0.03);
+}
+function mKick(t){
+  const a=actx, o=a.createOscillator(), g=a.createGain(); o.type='sine';
+  o.frequency.setValueAtTime(140,t); o.frequency.exponentialRampToValueAtTime(45,t+0.13);
+  g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+  o.connect(g); g.connect(mGain); o.start(t); o.stop(t+0.18);
+}
+function mStepPlay(i,t,sd){
+  const bar=(i>>4)&3, s=i&15;
+  const note=MEL[i]; if(note) mTone('square',MF(note),t,sd*1.9,0.045);
+  if(s===0||s===8||s===3||s===11) mTone('triangle',MF(BASS_R[bar]),t,sd*2.2,0.16);       // bajo (tumbao)
+  if(s===6||s===14) mTone('triangle',MF(BASS_F[bar]),t,sd*2.2,0.16);
+  if(s===0||s===8) mKick(t);
+  if(s===4||s===12) mNoise(t,0.09,0.12,'bandpass',1800);                                  // caja
+  if(s%2===0) mNoise(t,0.035,s%4===0?0.075:0.04,'highpass',5500);                         // güiro
+}
+const tempoMul=()=>state!=='play'?1:(fuel<=0?1.35:fuel<12?1.28:fuel<30?1.14:1);
+function musicTick(){
+  const a=actx; if(!a||!mGain) return;
+  mGain.gain.setTargetAtTime(state==='dying'?0.08:(state==='summary'||state==='title'||state==='over'||state==='win')?0.7:1,a.currentTime,0.12);
+  if(mNext<a.currentTime) mNext=a.currentTime+0.02;
+  const sd=60/(104*tempoMul())/4;
+  while(mNext<a.currentTime+0.18){ mStepPlay(mStep,mNext,sd); mNext+=sd; mStep=(mStep+1)&63; }
+}
+function startMusic(){
+  const a=audio(); if(!a||mTimer||!musicOn) return;
+  try{ if(a.state==='suspended') a.resume(); }catch(e){}
+  if(!mGain){ mGain=a.createGain(); mGain.gain.value=0.55; mGain.connect(a.destination);
+    nBuf=a.createBuffer(1,a.sampleRate*0.3,a.sampleRate); const d=nBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
+  mNext=a.currentTime+0.05;
+  mTimer=setInterval(()=>{ if(paused||document.hidden){ mNext=0; return; } musicTick(); },40);
+}
+function stopMusic(){ if(mTimer){ clearInterval(mTimer); mTimer=null; } }
+function setMusic(v){
+  musicOn=v; try{localStorage.setItem('microx_music',v?'1':'0');}catch(e){}
+  document.body.classList.toggle('muted',!v);
+  if(v) startMusic(); else stopMusic();
+}
+function unlockAudio(){ audio(); startMusic(); }
 const sfx = {
   flag:  ()=>{beep(660,.08);setTimeout(()=>beep(990,.12),70);},
   fuel:  ()=>{beep(300,.25,'triangle',.07,400);},
@@ -286,7 +352,7 @@ function resetActors(){
   const sp = 2.5+1.5*diff();
   enemies = enemySpawns.map((s,i)=>({cx:s.x,cy:s.y,dir:-1,t:0,face:0,stun:0,
     delay:0.8+i*1.1, speed:sp*(0.94+Math.random()*0.1), wander:i===0?0.1*(1-diff()):0.08+0.32*(1-diff())}));
-  clouds=[]; puffs=[]; fuel=100; invuln=2; fieldKey=-1; held.length=0; buf.d=-1;
+  clouds=[]; puffs=[]; fuel=100; emptyT=0; invuln=2; fieldKey=-1; held.length=0; buf.d=-1;
 }
 
 /* ---------- entrada ---------- */
@@ -302,7 +368,7 @@ function wantDir(){
 let wantSmoke=false;
 const KEYS={ArrowRight:0,ArrowDown:1,ArrowLeft:2,ArrowUp:3,d:0,s:1,a:2,w:3,D:0,S:1,A:2,W:3};
 addEventListener('keydown',e=>{
-  audio();
+  unlockAudio();
   if(state==='title'){ menuKey(e); return; }
   if(paused){
     const k=e.key;
@@ -324,27 +390,35 @@ addEventListener('keyup',e=>{
   if(e.key in KEYS) release(KEYS[e.key]);
   if(e.key===' '||e.key==='z'||e.key==='x'||e.key==='Z'||e.key==='X'||e.key==='Shift') wantSmoke=false;
 });
-const stage=document.getElementById('stage');
+const stage=document.getElementById('stage'), wrapEl=document.getElementById('wrap');
 const touchUI = navigator.maxTouchPoints>0 || matchMedia('(pointer:coarse)').matches || /[?&]touch/.test(location.search);
 document.body.classList.toggle('touch',touchUI); document.body.classList.toggle('padmode',ctlMode===1);
 let sc=1;
 function applyCanvasH(){ CVH = tall?LH:480; cv.height=CVH; cv.style.height=CVH+'px'; }
+const probe=document.createElement('div');
+probe.style.cssText='position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+document.body.appendChild(probe);
 function layout(){
-  const vw=innerWidth, vh=innerHeight;
-  tall = vh>vw;                                       // vertical: juego arriba, controles abajo
+  const cs=getComputedStyle(probe), vv=window.visualViewport;
+  const l=parseFloat(cs.paddingLeft)||0, r=parseFloat(cs.paddingRight)||0, t=parseFloat(cs.paddingTop)||0;
+  const b=(parseFloat(cs.paddingBottom)||0)+(touchUI?10:0);            // margen extra para la barra de gestos
+  const vw=Math.round(vv?vv.width:innerWidth), vh=Math.round(vv?vv.height:innerHeight);
+  const aw=Math.max(200,vw-l-r), ah=Math.max(200,vh-t-b);
+  wrapEl.style.left=l+'px'; wrapEl.style.top=t+'px'; wrapEl.style.width=aw+'px'; wrapEl.style.height=ah+'px';
+  tall = ah>aw;                                       // vertical: el mapa ocupa toda la pantalla
   document.body.classList.toggle('tall',tall); document.body.classList.toggle('wide',!tall);
   if(!tall){ VW=640; VH=480; LW=880; LH=480; CVH=480; RS=5; }
   else {
-    LW=360; LH=Math.max(560,Math.min(900,Math.round(360*vh/vw)));
+    LW=360; LH=Math.max(520,Math.min(900,Math.round(360*ah/aw)));
     VW=LW; VH=LH; CVH=LH; RS=3;
   }
   cv.width=LW; applyCanvasH();
   stage.style.width=LW+'px'; stage.style.height=(tall?LH:480)+'px';
-  sc=Math.min(vw/LW, vh/(tall?LH:480));
+  sc=Math.min(aw/LW, ah/(tall?LH:480));
   stage.style.transform=`translate(-50%,-50%) scale(${sc})`;
   camSnap=true;
 }
-addEventListener('resize',layout); addEventListener('orientationchange',()=>setTimeout(layout,120));
+addEventListener('resize',layout); if(window.visualViewport) visualViewport.addEventListener('resize',layout); addEventListener('orientationchange',()=>setTimeout(layout,120));
 /* cruceta: el dedo puede deslizarse entre botones; un toque fija la dirección */
 const pad=document.getElementById('pad'); let padPid=null, padBtn=-1;
 const padBtns=[...pad.querySelectorAll('button')];
@@ -355,24 +429,27 @@ function padSet(d){
   padBtn=d;
   if(d>=0){ press(d,true); padBtns.forEach(b=>{ if(+b.dataset.d===d)b.classList.add('on'); }); }
 }
-pad.addEventListener('pointerdown',e=>{ e.preventDefault(); audio(); startIfNeeded(); padPid=e.pointerId; try{pad.setPointerCapture(e.pointerId);}catch(_){} padSet(padHit(e)); });
+pad.addEventListener('pointerdown',e=>{ e.preventDefault(); unlockAudio(); startIfNeeded(); padPid=e.pointerId; try{pad.setPointerCapture(e.pointerId);}catch(_){} padSet(padHit(e)); });
 pad.addEventListener('pointermove',e=>{ if(e.pointerId===padPid) padSet(padHit(e)); });
 ['pointerup','pointercancel'].forEach(ev=>pad.addEventListener(ev,e=>{ if(e.pointerId!==padPid)return; padPid=null; padSet(-1); }));
 
 /* botón de humo */
 const humo=document.getElementById('humo');
-humo.addEventListener('pointerdown',e=>{e.preventDefault();audio();startIfNeeded();wantSmoke=true;humo.classList.add('on');try{humo.setPointerCapture(e.pointerId);}catch(_){}});
+humo.addEventListener('pointerdown',e=>{e.preventDefault();unlockAudio();startIfNeeded();wantSmoke=true;humo.classList.add('on');try{humo.setPointerCapture(e.pointerId);}catch(_){}});
 ['pointerup','pointercancel'].forEach(ev=>humo.addEventListener(ev,()=>{wantSmoke=false;humo.classList.remove('on');}));
 
 layout();
+const muteBtn=document.getElementById('mutebtn');
+muteBtn.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); unlockAudio(); setMusic(!musicOn); });
+document.body.classList.toggle('muted',!musicOn);
 const pauseBtn=document.getElementById('pausebtn');
-pauseBtn.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); audio(); setPaused(!paused); });
+pauseBtn.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); unlockAudio(); setPaused(!paused); });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) setPaused(true); });
 addEventListener('pagehide',()=>setPaused(true));
 let sw=null;
 const SWIPE=16;   // px de pantalla para reconocer un gesto
 cv.addEventListener('pointerdown',e=>{
-  audio(); if(paused){ pauseTap(e); return; } if(state==='title'){ menuTap(e); return; }
+  unlockAudio(); if(paused){ pauseTap(e); return; } if(state==='title'){ menuTap(e); return; }
   startIfNeeded();
   sw={x:e.clientX,y:e.clientY,ox:e.clientX,oy:e.clientY,t:performance.now(),moved:false,id:e.pointerId};
   try{cv.setPointerCapture(e.pointerId);}catch(_){}
@@ -399,18 +476,20 @@ function startIfNeeded(){
   if((state==='over'||state==='win') && stateT>1){ go('title'); }
   else if(state==='summary' && stateT>0.8){ nextLevel(); }
 }
-const MENU_N = 5;
+const MENU_N = 6;
 function menuActivate(){
   if(menuSel===0) startGame();
   else if(menuSel===1) editBuf='';
   else if(menuSel===2) startLevel = startLevel%MAXL+1;
   else if(menuSel===3) setZoom(zoomI+1);
-  else setCtl(1-ctlMode);
+  else if(menuSel===4) setCtl(1-ctlMode);
+  else setMusic(!musicOn);
 }
 function menuAdjust(d){
   if(menuSel===2) startLevel=(startLevel-1+d+MAXL)%MAXL+1;
   else if(menuSel===3) setZoom(zoomI+d);
   else if(menuSel===4) setCtl(1-ctlMode);
+  else if(menuSel===5) setMusic(!musicOn);
 }
 function menuKey(e){
   if(editBuf!==null){
@@ -487,7 +566,7 @@ function arrive(){
     if(!flags.length){ levelClear(); return true; }
   }
   for(let k=tanks.length-1;k>=0;k--) if(tanks[k].x===player.cx&&tanks[k].y===player.cy){
-    tanks.splice(k,1); fuel=Math.min(100,fuel+35); score+=50; sfx.fuel();
+    tanks.splice(k,1); fuel=Math.min(100,fuel+30); score+=50; sfx.fuel();
     floaters.push({x:(player.cx+.5)*T,y:(player.cy+.5)*T,t:1,txt:'+BENCINA'});
   }
   return false;
@@ -532,14 +611,15 @@ function updatePlay(dt){
   if(player.dir>=0||wantDir()>=0){
     const before=fuel;
     movePlayer(spd*dt);
-    if(player.dir>=0&&state==='play') fuel=Math.max(0,fuel-dt*(100/(95-30*diff())));
+    if(player.dir>=0&&state==='play') fuel=Math.max(0,fuel-dt*(100/(50-18*diff())));
   }
   if(state!=='play')return;
   // campo de distancia hacia el jugador
   const k=idx(player.cx,player.cy);
   if(k!==fieldKey){ fieldKey=k; field=bfs(player.cx,player.cy,true); }
   // humo
-  if(fuel<30&&fuel>0){ lowT-=dt; if(lowT<=0){ sfx.low(); lowT=fuel<12?0.55:1.1; } } else lowT=0;
+  if(fuel<30){ lowT-=dt; if(lowT<=0){ sfx.low(); lowT=fuel<=0?0.4:fuel<12?0.55:1.1; } } else lowT=0;
+  if(fuel<=0){ emptyT+=dt; if(emptyT>8){ emptyT=0; die('¡Te quedaste sin bencina!'); return; } } else emptyT=0;
   { const st=runStats[level-1]; if(st) st.t+=dt; }
   smokeCD-=dt; const wsm=wantSmoke||smokeReq; smokeReq=false;
   if(wsm&&smokeCD<=0&&fuel>=3){
@@ -650,22 +730,57 @@ function drawTank(x,y){
   ctx.fillStyle='#fff'; ctx.font='bold 13px "Courier New"'; ctx.textAlign='center'; ctx.fillText('D',0,5);
   ctx.restore();
 }
+const OR_='#eba126', ORD_='#c98412', WH_='#f3f0e8', GL_='#4a6a92';
+function busSide(){
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-20,11,42,3);
+  ctx.fillStyle='#000'; ctx.fillRect(-23,-12,46,22);                    // contorno
+  ctx.fillStyle=OR_; ctx.fillRect(-22,-11,44,20);
+  ctx.fillStyle=WH_; ctx.fillRect(-22,-11,44,4);                        // techo blanco
+  ctx.fillStyle='#000'; ctx.fillRect(-22,-7,44,9);                      // franja de ventanas
+  ctx.fillStyle=GL_; for(let i=0;i<4;i++) ctx.fillRect(-20+i*7.6,-6,6.4,6.5);
+  ctx.fillStyle='rgba(255,255,255,.28)'; for(let i=0;i<4;i++) ctx.fillRect(-20+i*7.6,-6,6.4,1.6);
+  ctx.fillStyle=WH_; ctx.fillRect(10,-7,6.5,15);                        // puerta delantera
+  ctx.fillStyle=GL_; ctx.fillRect(11,-6,2.3,13); ctx.fillRect(13.8,-6,2.3,13);
+  ctx.fillStyle=WH_; ctx.fillRect(17,-11,5,11);                         // frente blanco
+  ctx.fillStyle=GL_; ctx.fillRect(18,-6,4,6.5);                         // parabrisas
+  ctx.fillStyle='#000'; ctx.fillRect(17,-11,5,3); ctx.fillStyle='#ffb000'; ctx.fillRect(18.6,-10.4,2,1.8);   // letrero
+  ctx.fillStyle='#111'; ctx.fillRect(-22,2,32,1.4);                     // línea negra bajo las ventanas
+  ctx.strokeStyle='#111'; ctx.lineWidth=1.9; ctx.beginPath();           // gran X del recorrido
+  ctx.moveTo(-4,3.4); ctx.lineTo(3,8.6); ctx.moveTo(3,3.4); ctx.lineTo(-4,8.6); ctx.stroke();
+  ctx.fillStyle='#fff6c8'; ctx.fillRect(21,3.5,2,3); ctx.fillStyle='#d62d20'; ctx.fillRect(-23,3.5,2,3);
+  ctx.fillStyle='#222'; ctx.fillRect(21,7,3,3);                          // parachoques
+  for(const cx of [-12,12]){                                             // ruedas
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cx,8.5,6,Math.PI,0); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,9,4.9,0,7); ctx.fill();
+    ctx.fillStyle='#f3f0e8'; ctx.beginPath(); ctx.arc(cx,9,2.7,0,7); ctx.fill();
+    ctx.fillStyle='#8c8f9a'; ctx.beginPath(); ctx.arc(cx,9,0.9,0,7); ctx.fill(); }
+}
+function busEnd(front){
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-11,12,24,3);
+  ctx.fillStyle='#000'; ctx.fillRect(-14,5,28,9);                        // ruedas a los lados
+  ctx.fillRect(-13,-13,26,22);
+  ctx.fillStyle=OR_; ctx.fillRect(-12,-12,24,22);
+  ctx.fillStyle=WH_; ctx.fillRect(-12,-12,24,5);
+  if(front){
+    ctx.fillStyle='#000'; ctx.fillRect(-9,-12,18,4); ctx.fillStyle='#ffb000'; ctx.fillRect(-1.5,-11,3,2);   // letrero X
+    ctx.fillStyle=GL_; ctx.fillRect(-10,-7,20,10);                       // parabrisas
+    ctx.fillStyle='rgba(255,255,255,.25)'; ctx.fillRect(-10,-7,20,2);
+    ctx.fillStyle=ORD_; ctx.fillRect(-6,4,12,4); ctx.fillStyle='#222'; ctx.fillRect(-5,5,10,.8); ctx.fillRect(-5,6.8,10,.8);
+    ctx.fillStyle='#fff6c8'; ctx.fillRect(-11,4,4,3); ctx.fillRect(7,4,4,3);
+  } else {
+    ctx.fillStyle=GL_; ctx.fillRect(-8,-6,16,6);                         // luneta trasera
+    ctx.fillStyle=ORD_; ctx.fillRect(-7,2,14,4); ctx.fillStyle='#222'; for(let i=0;i<3;i++) ctx.fillRect(-6,2.6+i*1.2,12,.6);
+    ctx.fillStyle='#d62d20'; ctx.fillRect(-11,3,3,4); ctx.fillRect(8,3,3,4);
+  }
+  ctx.fillStyle='#222'; ctx.fillRect(-12,9,24,3);                        // parachoques
+  ctx.fillStyle='#fff'; ctx.fillRect(-6.5,9.2,13,2.8);                   // patente
+  ctx.fillStyle='#111'; ctx.font='bold 3.4px "Courier New"'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('JCBO04',0,10.7,12); ctx.textBaseline='alphabetic';
+}
+/* La micro se ve de perfil (como en el logo): de lado al ir a izquierda/derecha; de frente al bajar y de atrás al subir. */
 function drawMicro(x,y,face,k=K){
-  ctx.save(); ctx.translate(x,y); ctx.scale(k*0.9,k*0.9); ctx.rotate(face*Math.PI/2);
-  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-19,-9,42,22);
-  ctx.fillStyle='#000'; ctx.fillRect(-22,-12,44,24);                          // contorno
-  ctx.fillStyle='#ffd21a'; ctx.fillRect(-21,-11,42,22);
-  ctx.fillStyle='#111'; ctx.fillRect(-21,-11,37,2); ctx.fillRect(-21,9,37,2);   // franjas negras
-  ctx.fillStyle='#fff08a'; ctx.fillRect(-18,-7,34,14);                        // techo
-  ctx.fillStyle='#1d2740'; ctx.fillRect(16,-8,4,16); ctx.fillRect(-20,-7,2,14);  // parabrisas y luneta
-  ctx.fillStyle='#fff'; ctx.fillRect(20,-10,2,3); ctx.fillRect(20,7,2,3);
-  ctx.fillStyle='#d22'; ctx.fillRect(-22,-10,2,3); ctx.fillRect(-22,7,2,3);
-  // patente grande sobre el techo
-  ctx.fillStyle='#000'; ctx.fillRect(-17,-6,32,12);
-  ctx.fillStyle='#fff'; ctx.fillRect(-16,-5,30,10);
-  ctx.save(); ctx.rotate(face===2?Math.PI:0);
-  ctx.fillStyle='#111'; ctx.font='bold 10px "Courier New"'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('JCBO04',-1,0.5,28); ctx.restore(); ctx.textBaseline='alphabetic';
+  ctx.save(); ctx.translate(x,y); ctx.scale(k*1.05,k*1.05);
+  if(face===0||face===2){ if(face===2) ctx.scale(-1,1); busSide(); }
+  else busEnd(face===1);
   ctx.restore();
 }
 function drawCop(x,y,face,stun,k=K){
@@ -785,7 +900,7 @@ function banner(t,sub){
   ctx.fillStyle='#fff'; ctx.font='14px "Courier New"';
   L2.forEach((l,i)=>ctx.fillText(l,VW/2,y0+12+L1.length*(fs+6)+14+i*18));
 }
-function menuItems(){ return ['JUGAR','RÉCORD HISTÓRICO  '+(editBuf!==null?(editBuf||'_')+'_':String(hi).padStart(7,'0')),'NIVEL INICIAL  < '+startLevel+' >','ZOOM  < '+ZNAMES[zoomI]+' >','CONTROL  < '+(ctlMode?'CRUCETA':'DESLIZAR')+' >']; }
+function menuItems(){ return ['JUGAR','RÉCORD HISTÓRICO  '+(editBuf!==null?(editBuf||'_')+'_':String(hi).padStart(7,'0')),'NIVEL INICIAL  < '+startLevel+' >','ZOOM  < '+ZNAMES[zoomI]+' >','CONTROL  < '+(ctlMode?'CRUCETA':'DESLIZAR')+' >','MÚSICA  < '+(musicOn?'SÍ':'NO')+' >']; }
 function chevrons(x0,x1,y,sel){
   ctx.fillStyle=sel?'#f6c90e':'#6f7aa8';
   ctx.beginPath(); ctx.moveTo(x0+8,y-8); ctx.lineTo(x0,y); ctx.lineTo(x0+8,y+8); ctx.fill();
@@ -937,7 +1052,7 @@ function draw(){
   }
   ctx.font='bold 14px "Courier New"'; ctx.textAlign='center';
   for(const f of floaters){ ctx.fillStyle=`rgba(255,255,255,${Math.min(1,f.t*2)})`; ctx.fillText(f.txt,f.x-camX,f.y-camY-12); }
-  if(fuel<=0&&state==='play'){ ctx.fillStyle='#ff5050'; ctx.font='bold 16px "Courier New"'; ctx.fillText('¡SIN BENCINA!',VW/2,40); }
+  if(fuel<=0&&state==='play'){ ctx.fillStyle='#ff5050'; ctx.font='bold 16px "Courier New"'; ctx.fillText('¡SIN BENCINA!  '+Math.max(0,Math.ceil(8-emptyT)),VW/2,tall?70:40); }
   ctx.restore();
   if(state==='ready') banner(msgT>0?msg:'NIVEL '+level+' de '+MAXL, level===1&&lives===3?(touchUI?'Desliza para girar · Toca = humo':'¡Junta las banderas!'):'');
   if(state==='dying'||state==='clear') banner(msg);
@@ -952,7 +1067,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   addEventListener('load',()=>{ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} });
 }
 // se expone para pruebas
-window.__mx = {get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
+window.__mx = {get music(){return {on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>
 </body>
 </html>

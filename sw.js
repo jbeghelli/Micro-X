@@ -1,5 +1,5 @@
 /* Service worker de Micro-X: deja el juego disponible sin conexión. */
-const CACHE = 'microx-v4';   // súbelo (v2, v3…) cuando publiques una versión nueva
+const CACHE = 'microx-v5';   // súbelo (v2, v3…) cuando publiques una versión nueva
 const FILES = ['./', './index.html', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'];
 

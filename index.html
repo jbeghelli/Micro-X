@@ -93,7 +93,14 @@ const MAP = [
   ".##.#####.#.#.#.#.#.#.##..##.##.",
   "..........................##...."
 ];
-const T = 60, K = T/40, W = MAP[0].length, H = MAP.length;
+const W = MAP[0].length, H = MAP.length;
+const ZOOMS = [36,48,60], ZNAMES = ['LEJOS','MEDIO','CERCA'], MAXL = 20;
+let zoomI = 1; try { const z=+localStorage.getItem('microx_zoom'); if(z>=0&&z<3&&localStorage.getItem('microx_zoom')!==null) zoomI=z; } catch(e){}
+let T = ZOOMS[zoomI], K = T/40;
+function setZoom(i){ zoomI=(i+3)%3; T=ZOOMS[zoomI]; K=T/40; camSnap=true; try{localStorage.setItem('microx_zoom',zoomI);}catch(e){} }
+const diff = ()=>(level-1)/(MAXL-1);            // 0 (nivel 1) .. 1 (nivel 20)
+let startLevel = 1, menuSel = 0, editBuf = null, camSnap = true, fdt = 0.016;
+function setHi(v){ hi=Math.max(0,Math.min(99999999,v|0)); try{localStorage.setItem('microx_hi',hi);}catch(e){} }
 const VW = 640, VH = 480;
 const DX = [1,0,-1,0], DY = [0,1,0,-1];     // 0 der, 1 abajo, 2 izq, 3 arriba
 const PLAYER_SPEED = 4.2;                   // casillas/seg
@@ -181,7 +188,7 @@ function setupLevel(n){
   for(let i=0;i<TOTAL_FLAGS;i++) pick(8,5,flags);
   for(let i=0;i<3;i++) pick(10,12,tanks);
   // baches (sin aislar ninguna parte del mapa)
-  const nB = Math.min(22+5*n, 70);
+  const nB = Math.round(8+30*((n-1)/(MAXL-1)));
   let placed=0, nonBache=roadCount;
   for(const [x,y] of road){
     if(placed>=nB)break;
@@ -193,7 +200,7 @@ function setupLevel(n){
   // enemigos
   const dS = bfs(startTile.x,startTile.y,true);
   const far2 = road.filter(([x,y])=>dS[idx(x,y)]>=30&&dS[idx(x,y)]<9999&&!baches[idx(x,y)]);
-  const nE = Math.min(2+n,7);
+  const nE = 2+Math.floor((n-1)/5);
   enemySpawns=[];
   for(const [x,y] of far2){
     if(enemySpawns.length>=nE)break;
@@ -207,9 +214,9 @@ function setupLevel(n){
 }
 function resetActors(){
   player = {cx:startTile.x, cy:startTile.y, dir:-1, t:0, face:3};
-  const sp = Math.min(2.9+0.15*level, 3.9);
+  const sp = 2.5+1.5*diff();
   enemies = enemySpawns.map((s,i)=>({cx:s.x,cy:s.y,dir:-1,t:0,face:0,stun:0,
-    delay:0.8+i*1.1, speed:sp*(0.94+Math.random()*0.1), wander:i===0?0:Math.min(0.12+0.05*i,0.35)}));
+    delay:0.8+i*1.1, speed:sp*(0.94+Math.random()*0.1), wander:i===0?0.1*(1-diff()):0.08+0.32*(1-diff())}));
   clouds=[]; puffs=[]; fuel=100; invuln=2; fieldKey=-1; held.length=0; buf.d=-1;
 }
 
@@ -222,6 +229,9 @@ let wantSmoke=false;
 const KEYS={ArrowRight:0,ArrowDown:1,ArrowLeft:2,ArrowUp:3,d:0,s:1,a:2,w:3,D:0,S:1,A:2,W:3};
 addEventListener('keydown',e=>{
   audio();
+  if(state==='title'){ menuKey(e); return; }
+  if(e.key==='+'||e.key==='='){ setZoom(zoomI+1); return; }
+  if(e.key==='-'||e.key==='_'){ setZoom(zoomI-1); return; }
   if(e.key in KEYS){ if(!e.repeat) press(KEYS[e.key]); e.preventDefault(); return; }
   if(e.key===' '||e.key==='z'||e.key==='x'||e.key==='Z'||e.key==='X'||e.key==='Shift'){ wantSmoke=true; e.preventDefault(); if(!e.repeat) startIfNeeded(); return; }
   if(e.key==='Enter') startIfNeeded();
@@ -241,17 +251,55 @@ const humo=document.getElementById('humo');
 humo.addEventListener('pointerdown',e=>{e.preventDefault();audio();startIfNeeded();wantSmoke=true;});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>humo.addEventListener(ev,()=>wantSmoke=false));
 let sw=null;
-cv.addEventListener('pointerdown',e=>{audio();startIfNeeded();sw={x:e.clientX,y:e.clientY};});
+cv.addEventListener('pointerdown',e=>{audio(); if(state==='title'){menuTap(e);return;} startIfNeeded();sw={x:e.clientX,y:e.clientY};});
 cv.addEventListener('pointermove',e=>{
   if(!sw)return; const dx=e.clientX-sw.x, dy=e.clientY-sw.y;
   if(Math.hypot(dx,dy)>24){ press(Math.abs(dx)>Math.abs(dy)?(dx>0?0:2):(dy>0?1:3)); sw={x:e.clientX,y:e.clientY}; }
 });
 addEventListener('pointerup',()=>sw=null);
 
+function startGame(){ score=0; lives=3; setupLevel(startLevel); go('ready'); }
 function startIfNeeded(){
-  if(state==='title'){ score=0; lives=3; setupLevel(1); go('ready'); }
-  else if(state==='over' && stateT>1){ state='title'; }
+  if((state==='over'||state==='win') && stateT>1){ state='title'; }
 }
+const MENU_N = 4;
+function menuActivate(){
+  if(menuSel===0) startGame();
+  else if(menuSel===1) editBuf='';
+  else if(menuSel===2) startLevel = startLevel%MAXL+1;
+  else setZoom(zoomI+1);
+}
+function menuAdjust(d){
+  if(menuSel===2) startLevel=(startLevel-1+d+MAXL)%MAXL+1;
+  else if(menuSel===3) setZoom(zoomI+d);
+}
+function menuKey(e){
+  if(editBuf!==null){
+    if(/^[0-9]$/.test(e.key)){ if(editBuf.length<8) editBuf+=e.key; }
+    else if(e.key==='Backspace') editBuf=editBuf.slice(0,-1);
+    else if(e.key==='Enter'){ setHi(+editBuf||0); editBuf=null; }
+    else if(e.key==='Escape') editBuf=null;
+    e.preventDefault(); return;
+  }
+  const k=e.key;
+  if(k==='ArrowUp'||k==='w'||k==='W') menuSel=(menuSel+MENU_N-1)%MENU_N;
+  else if(k==='ArrowDown'||k==='s'||k==='S') menuSel=(menuSel+1)%MENU_N;
+  else if(k==='ArrowLeft'||k==='a'||k==='A') menuAdjust(-1);
+  else if(k==='ArrowRight'||k==='d'||k==='D') menuAdjust(1);
+  else if(k==='Enter'||k===' ') menuActivate();
+  else return;
+  e.preventDefault();
+}
+function menuTap(e){
+  const r=cv.getBoundingClientRect(), y=(e.clientY-r.top)*VH/r.height;
+  for(let i=0;i<MENU_N;i++) if(Math.abs(y-(MENU_Y+i*MENU_DY))<MENU_DY/2){
+    menuSel=i;
+    if(i===1){ let v=null; try{ v=prompt('Récord histórico (número):',String(hi)); }catch(_){} if(v!==null&&v!==''&&!isNaN(+v)) setHi(+v); else if(v==='') setHi(0); }
+    else menuActivate();
+    return;
+  }
+}
+const MENU_Y=268, MENU_DY=27;
 function go(s){ state=s; stateT=0; }
 function say(t,d=1.5){ msg=t; msgT=d; }
 
@@ -319,16 +367,20 @@ function die(why){
   if(state!=='play')return;
   sfx.crash(); say(why,1.8); go('dying');
 }
+function finishRun(win){
+  if(score>hi) setHi(score);
+  go(win?'win':'over');
+}
 function levelClear(){
   const bonus=Math.round(fuel)*10; score+=bonus;
-  say('¡Recorrido completo!  Bonus bencina +'+bonus,2.4); sfx.clear(); go('clear');
+  say((level>=MAXL?'¡ÚLTIMO RECORRIDO COMPLETADO!':'¡Recorrido completo!')+'  Bonus bencina +'+bonus,2.4); sfx.clear(); go('clear');
 }
 function updatePlay(dt){
   const spd = PLAYER_SPEED*(fuel>0?1:0.45);
   if(player.dir>=0||wantDir()>=0){
     const before=fuel;
     movePlayer(spd*dt);
-    if(player.dir>=0&&state==='play') fuel=Math.max(0,fuel-dt*(100/75));
+    if(player.dir>=0&&state==='play') fuel=Math.max(0,fuel-dt*(100/(95-30*diff())));
   }
   if(state!=='play')return;
   // campo de distancia hacia el jugador
@@ -356,7 +408,7 @@ function updatePlay(dt){
     if(e.stun>0){ e.stun-=dt; }
     else {
       const ep=pos(e);
-      for(const c of clouds) if(Math.hypot(ep.x-c.x,ep.y-c.y)<T*0.95){ e.stun=3; sfx.stun(); score+=20; break; }
+      for(const c of clouds) if(Math.hypot(ep.x-c.x,ep.y-c.y)<T*0.95){ e.stun=3-diff(); sfx.stun(); score+=20; break; }
       if(e.stun<=0) moveEnemy(e,e.speed*dt);
     }
     const ep=pos(e);
@@ -365,19 +417,19 @@ function updatePlay(dt){
 }
 function afterDeath(){
   lives--; combo=1;
-  if(lives<=0){ if(score>hi){hi=score;try{localStorage.setItem('microx_hi',hi);}catch(e){}} go('over'); return; }
+  if(lives<=0){ finishRun(false); return; }
   resetActors(); go('ready'); say('¡Sigue el recorrido!',1.2);
 }
 
 /* ---------- bucle ---------- */
 let last=performance.now();
 function frame(now){
-  const dt=Math.min(0.05,(now-last)/1000); last=now; clock+=dt; stateT+=dt;
+  const dt=Math.min(0.05,(now-last)/1000); fdt=dt; last=now; clock+=dt; stateT+=dt;
   if(msgT>0) msgT-=dt;
   if(state==='ready'){ if(stateT>1.4) go('play'); }
   else if(state==='play') updatePlay(dt);
   else if(state==='dying'){ if(stateT>1.8) afterDeath(); }
-  else if(state==='clear'){ if(stateT>2.8){ setupLevel(level+1); go('ready'); say('Nivel '+level,1.4); } }
+  else if(state==='clear'){ if(stateT>2.8){ if(level>=MAXL) finishRun(true); else { setupLevel(level+1); go('ready'); say('Nivel '+level,1.4); } } }
   for(const p of puffs){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.s+=dt*14;}
   puffs=puffs.filter(p=>p.t>0);
   for(const f of floaters){f.t-=dt;f.y-=dt*30;}
@@ -490,12 +542,13 @@ function drawHUD(){
   if(flags) for(const f of flags){ ctx.fillStyle='#ffe000'; ctx.fillRect(rx+f.x*S,ry+f.y*S,S,S); }
   if(tanks) for(const f of tanks){ ctx.fillStyle='#fff'; ctx.fillRect(rx+f.x*S,ry+f.y*S,S,S); }
   if(enemies) for(const e of enemies){ const p=pos(e); ctx.fillStyle='#ff3030'; ctx.fillRect(rx+p.x/T*S-S/2,ry+p.y/T*S-S/2,S+1,S+1); }
+  if(state!=='title'){ ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(rx+camX/T*S+.5,ry+camY/T*S+.5,VW/T*S,VH/T*S); }
   if(player){ const p=pos(player); if(Math.floor(clock*5)%2||state!=='play'){ ctx.fillStyle='#4cf'; ctx.fillRect(rx+p.x/T*S-S/2,ry+p.y/T*S-S/2,S+1,S+1);} }
   ctx.textAlign='left'; ctx.font='bold 12px "Courier New"';
   let y=ry+H*S+22;
   const cell=(l,v,c='#fff')=>{ctx.fillStyle='#f6c90e';ctx.fillText(l,X+10,y);ctx.fillStyle=c;ctx.fillText(String(v).padStart(7,'0'),X+86,y);y+=17;};
   cell('PUNTAJE',score); cell('RÉCORD',Math.max(hi,score),'#ff8');
-  ctx.fillStyle='#f6c90e'; ctx.fillText('NIVEL '+level,X+10,y); ctx.fillText('BAND.',X+86,y); ctx.fillStyle='#fff'; ctx.fillText(String(flags?flags.length:0).padStart(2,' '),X+136,y); y+=14;
+  ctx.fillStyle='#f6c90e'; ctx.fillText('NIV '+level+'/'+MAXL,X+10,y); ctx.fillText('BAND.',X+86,y); ctx.fillStyle='#fff'; ctx.fillText(String(flags?flags.length:0).padStart(2,' '),X+136,y); y+=14;
   ctx.fillStyle='#f6c90e'; ctx.fillText('BENCINA',X+10,y+8);
   const low=fuel<25&&Math.floor(clock*4)%2;
   ctx.fillStyle='#333'; ctx.fillRect(X+76,y,76,10);
@@ -529,16 +582,26 @@ function drawTitle(){
   ctx.font='14px "Courier New"'; ctx.fillStyle='#ddd';
   ctx.fillText('Junta las 10 banderas · esquiva los baches · suelta humo negro',400,196);
   ctx.fillText('para frenar a las radiopatrullas de Carabineros',400,216);
-  if(Math.floor(clock*2)%2){ ctx.fillStyle='#fff'; ctx.font='bold 20px "Courier New"'; ctx.fillText('PRESIONA ENTER O TOCA PARA PARTIR',400,262); }
+  ctx.fillStyle='rgba(0,0,0,.65)'; ctx.fillRect(160,MENU_Y-26,480,MENU_DY*MENU_N+34);
+  ctx.font='bold 17px "Courier New"';
+  const items=['JUGAR','RÉCORD HISTÓRICO  '+(editBuf!==null?(editBuf||'_')+'_':String(hi).padStart(7,'0')),'NIVEL INICIAL  < '+startLevel+' >','ZOOM  < '+ZNAMES[zoomI]+' >'];
+  for(let i=0;i<MENU_N;i++){
+    const sel=i===menuSel, y=MENU_Y+i*MENU_DY;
+    ctx.fillStyle=sel?'#f6c90e':'#cfd6ff';
+    ctx.fillText((sel?'▶ ':'  ')+items[i],400,y);
+  }
   ctx.fillStyle='#9ab'; ctx.font='12px "Courier New"';
-  ctx.fillText('Flechas / WASD = mover   ·   Espacio / Z = humo   ·   P = pausa',400,456);
-  ctx.fillText('RÉCORD '+String(hi).padStart(7,'0'),400,472);
+  ctx.fillText(editBuf!==null?'Escribe el número · Enter = guardar · vacío = borrar · Esc = cancelar':'↑↓ elegir · ←→ cambiar · Enter = aceptar',400,MENU_Y+MENU_DY*MENU_N-6);
+  ctx.fillText('Flechas / WASD = mover · Espacio / Z = humo · P = pausa · +/- = zoom',400,470);
 }
 function draw(){
   ctx.fillStyle='#000'; ctx.fillRect(0,0,800,VH);
   if(state==='title'){ drawTitle(); return; }
   const pp=pos(player);
-  camX=Math.max(0,Math.min(W*T-VW,pp.x-VW/2)); camY=Math.max(0,Math.min(H*T-VH,pp.y-VH/2));
+  { const look=(player.dir>=0&&state==='play')?T*1.3:0;
+    const tx=Math.max(0,Math.min(W*T-VW,pp.x-VW/2+DX[player.face]*look)), ty=Math.max(0,Math.min(H*T-VH,pp.y-VH/2+DY[player.face]*look));
+    if(camSnap||state==='ready'||state==='dying'){camX=tx;camY=ty;camSnap=false;}
+    else{const k=Math.min(1,fdt*6);camX+=(tx-camX)*k;camY+=(ty-camY)*k;} }
   ctx.save(); ctx.beginPath(); ctx.rect(0,0,VW,VH); ctx.clip();
   drawWorld(camX,camY);
   for(const f of tanks) drawTank(f.x*T+T/2-camX,f.y*T+T/2-camY);
@@ -555,15 +618,16 @@ function draw(){
   for(const f of floaters){ ctx.fillStyle=`rgba(255,255,255,${Math.min(1,f.t*2)})`; ctx.fillText(f.txt,f.x-camX,f.y-camY-12); }
   if(fuel<=0&&state==='play'){ ctx.fillStyle='#ff5050'; ctx.font='bold 16px "Courier New"'; ctx.fillText('¡SIN BENCINA!',VW/2,40); }
   ctx.restore();
-  if(state==='ready') banner(msgT>0?msg:'NIVEL '+level, level===1&&lives===3?'¡Junta las banderas!':'');
+  if(state==='ready') banner(msgT>0?msg:'NIVEL '+level+' de '+MAXL, level===1&&lives===3?'¡Junta las banderas!':'');
   if(state==='dying'||state==='clear') banner(msg);
+  if(state==='win') banner('¡COMPLETASTE LOS 20 RECORRIDOS!','Puntaje '+score+(score>=hi&&score>0?'  ¡NUEVO RÉCORD!':'')+'  ·  Enter para volver');
   if(state==='over') banner('FIN DEL RECORRIDO','Puntaje '+score+(score>=hi&&score>0?'  ¡NUEVO RÉCORD!':'')+'  ·  Enter para volver');
   if(state==='paused') banner('PAUSA','Presiona P para seguir');
   drawHUD();
 }
 requestAnimationFrame(frame);
 // se expone para pruebas
-window.__mx = {get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startIfNeeded, setupLevel};
+window.__mx = {get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>
 </body>
 </html>

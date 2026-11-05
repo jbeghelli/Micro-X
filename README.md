@@ -17,3 +17,7 @@ El radar de la derecha muestra el mapa completo.
 
 ## Mapa
 El laberinto es fijo y reproduce el mapa de Rally-X (32×56 casillas, transcrito de una imagen del mapa original).
+
+## Niveles y menú
+- 20 niveles con dificultad gradual (más baches y patrullas, patrullas más rápidas, menos bencina). Al completar el 20 ganas.
+- Menú principal: JUGAR, **RÉCORD HISTÓRICO** (editable: Enter, escribes el número, Enter), NIVEL INICIAL y ZOOM. En juego, `+`/`-` cambian el zoom.

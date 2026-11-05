@@ -34,10 +34,69 @@
    Un clon con sabor chileno del clásico Rally-X.
 =====================================================*/
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-const T = 40, CW = 15, CH = 11, W = 3*CW+1, H = 3*CH+1;
+/* Mapa fiel al de Rally-X (32x56 casillas). # = manzana, . = calle */
+const MAP = [
+  "...............########.........",
+  ".###.#####.##......####.#######.",
+  ".###.#####.##...#..####.........",
+  "................#.......###.###.",
+  ".######.#####......####.###.###.",
+  "...............###.####.........",
+  "....######.#.#####.####.#######.",
+  "#.#......#.#.###................",
+  "#.#.####.#.#.###.###.#########.#",
+  "#.#.#....#.#.###.###.#.......#.#",
+  "#.#.#.##.#.#.....###.#.......#.#",
+  "..#.#.##.#.#.###.###.#.#####.#.#",
+  ".##.#....#.#.###.###.#.#####.#.#",
+  ".##.#.####.#.........#.......#.#",
+  "....#......#.###.##..###..####.#",
+  ".##.#.######.###.##..###..####.#",
+  ".##..........###.##..###..####..",
+  ".###########.###................",
+  "......##..................###.##",
+  ".####.##.#######..######..###.##",
+  ".####........###..######......##",
+  ".####.##.###.###......##..###..#",
+  "......##.###......##..##..###..#",
+  "#.######.#######..##..##..####.#",
+  "#.................##...........#",
+  "#.######.#######..######..####.#",
+  "#.######.#######..######..####.#",
+  "#...............................",
+  "#.###.##.####.##..###.##..####.#",
+  "#.###.##.####.##..###.##..####.#",
+  "#.###.##.##...........##..##...#",
+  "#.###.##.##.#.##..###.##..##.#.#",
+  "#.............##..###.....##.#.#",
+  "#.##.###.####.##......##.....#..",
+  "#.##.###.####.##..###.##..#####.",
+  "#..........##.##..###.##..#####.",
+  "#.####.###......................",
+  "..####.###......................",
+  ".........###.##.###.####..##.##.",
+  "..##.###.###.##.###.####..##.##.",
+  "..##.###.###........####..##.##.",
+  "..##.###.###.##.###.......##....",
+  "..##.........##.....#.##..##.##.",
+  "..##.#####.####.###.#.##..##.##.",
+  "..##.#####.####.###.#.##..##.##.",
+  "....................#........##.",
+  "##.###.##.#####.###.#.##..##.##.",
+  "##.###.##.#####.###.#.##..##.##.",
+  "##....................##..##.##.",
+  "##.###.##.#.#.#.#.#.#.##..##.##.",
+  "##.###.##.#.#.#.#.#.#.##........",
+  "....##....#.#.#.#.#.#.....#####.",
+  ".##....##.#.#.#.#.#.#.##..#####.",
+  ".##.#####.#.#.#.#.#.#.##.....##.",
+  ".##.#####.#.#.#.#.#.#.##..##.##.",
+  "..........................##...."
+];
+const T = 60, K = T/40, W = MAP[0].length, H = MAP.length;
 const VW = 640, VH = 480;
 const DX = [1,0,-1,0], DY = [0,1,0,-1];     // 0 der, 1 abajo, 2 izq, 3 arriba
-const PLAYER_SPEED = 5.0;                   // tiles/seg
+const PLAYER_SPEED = 4.2;                   // casillas/seg
 const TOTAL_FLAGS = 10;
 
 let grid, baches, flags = [], tanks = [], enemies = [], clouds = [], puffs = [], floaters = [];
@@ -75,35 +134,9 @@ const sfx = {
 };
 
 /* ---------- generación del mapa ---------- */
-function carve(ax,ay,bx,by){
-  const sx=Math.sign(bx-ax), sy=Math.sign(by-ay);
-  let x=ax,y=ay; grid[idx(x,y)]=0;
-  while(x!==bx||y!==by){ x+=sx; y+=sy; grid[idx(x,y)]=0; }
-}
 function genMap(){
-  grid = new Uint8Array(W*H).fill(1);
-  const cx=i=>1+3*i, cy=j=>1+3*j;
-  const links = new Set(), deg = [];
-  const key=(i,j,k,l)=> i<k||(i===k&&j<l) ? `${i},${j}-${k},${l}` : `${k},${l}-${i},${j}`;
-  for(let i=0;i<CW;i++){deg[i]=[];for(let j=0;j<CH;j++){deg[i][j]=0;grid[idx(cx(i),cy(j))]=0;}}
-  const link=(i,j,k,l)=>{ const kk=key(i,j,k,l); if(links.has(kk))return;
-    links.add(kk); deg[i][j]++; deg[k][l]++; carve(cx(i),cy(j),cx(k),cy(l)); };
-  const nb=(i,j)=>[[i+1,j],[i,j+1],[i-1,j],[i,j-1]].filter(([a,b])=>a>=0&&b>=0&&a<CW&&b<CH);
-  // DFS
-  const seen = Array.from({length:CW},()=>Array(CH).fill(false));
-  const st=[[rnd(CW),rnd(CH)]]; seen[st[0][0]][st[0][1]]=true;
-  while(st.length){
-    const [i,j]=st[st.length-1];
-    const opts = shuffle(nb(i,j)).filter(([a,b])=>!seen[a][b]);
-    if(!opts.length){st.pop();continue;}
-    const [a,b]=opts[0]; seen[a][b]=true; link(i,j,a,b); st.push([a,b]);
-  }
-  // bucles extra
-  for(let i=0;i<CW;i++)for(let j=0;j<CH;j++)for(const [a,b] of nb(i,j))
-    if(Math.random()<0.10) link(i,j,a,b);
-  // menos callejones sin salida
-  for(let i=0;i<CW;i++)for(let j=0;j<CH;j++)
-    if(deg[i][j]<=1 && Math.random()<0.65){ const o=shuffle(nb(i,j))[0]; link(i,j,o[0],o[1]); }
+  grid = new Uint8Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++) grid[idx(x,y)] = MAP[y][x]==='#'?1:0;
   roadCount=0; for(let k=0;k<grid.length;k++) if(grid[k]===0) roadCount++;
 }
 function bfs(sx,sy,blockBaches=true){
@@ -123,16 +156,16 @@ function roadTiles(){ const r=[]; for(let y=0;y<H;y++)for(let x=0;x<W;x++) if(!i
 
 /* ---------- niveles ---------- */
 function buildRadar(){
-  const S=3, c=document.createElement('canvas'); c.width=W*S; c.height=H*S;
-  const g=c.getContext('2d'); g.fillStyle='#0d1020'; g.fillRect(0,0,c.width,c.height);
-  g.fillStyle='#3a4366';
+  const S=4, c=document.createElement('canvas'); c.width=W*S; c.height=H*S;
+  const g=c.getContext('2d'); g.fillStyle='#000'; g.fillRect(0,0,c.width,c.height);
+  g.fillStyle='#55c200';
   for(let y=0;y<H;y++)for(let x=0;x<W;x++) if(grid[idx(x,y)]===1) g.fillRect(x*S,y*S,S,S);
   radarImg=c;
 }
 function setupLevel(n){
   level=n; genMap();
   baches = new Uint8Array(W*H);
-  startTile = {x:1+3*7, y:1+3*5};
+  startTile = {x:16, y:27};
   const road = shuffle(roadTiles());
   const far = (x,y,m)=>Math.abs(x-startTile.x)+Math.abs(y-startTile.y)>m;
   // banderas y bidones
@@ -148,7 +181,7 @@ function setupLevel(n){
   for(let i=0;i<TOTAL_FLAGS;i++) pick(8,5,flags);
   for(let i=0;i<3;i++) pick(10,12,tanks);
   // baches (sin aislar ninguna parte del mapa)
-  const nB = Math.min(12+4*n, 44);
+  const nB = Math.min(22+5*n, 70);
   let placed=0, nonBache=roadCount;
   for(const [x,y] of road){
     if(placed>=nB)break;
@@ -159,12 +192,12 @@ function setupLevel(n){
   }
   // enemigos
   const dS = bfs(startTile.x,startTile.y,true);
-  const far2 = road.filter(([x,y])=>dS[idx(x,y)]>=18&&dS[idx(x,y)]<9999&&!baches[idx(x,y)]);
+  const far2 = road.filter(([x,y])=>dS[idx(x,y)]>=30&&dS[idx(x,y)]<9999&&!baches[idx(x,y)]);
   const nE = Math.min(2+n,7);
   enemySpawns=[];
   for(const [x,y] of far2){
     if(enemySpawns.length>=nE)break;
-    if(enemySpawns.some(s=>Math.abs(s.x-x)+Math.abs(s.y-y)<8))continue;
+    if(enemySpawns.some(s=>Math.abs(s.x-x)+Math.abs(s.y-y)<12))continue;
     enemySpawns.push({x,y});
   }
   while(enemySpawns.length<nE){ const [x,y]=far2[rnd(far2.length)]; enemySpawns.push({x,y}); }
@@ -174,7 +207,7 @@ function setupLevel(n){
 }
 function resetActors(){
   player = {cx:startTile.x, cy:startTile.y, dir:-1, t:0, face:3};
-  const sp = Math.min(3.5+0.18*level, 4.6);
+  const sp = Math.min(2.9+0.15*level, 3.9);
   enemies = enemySpawns.map((s,i)=>({cx:s.x,cy:s.y,dir:-1,t:0,face:0,stun:0,
     delay:0.8+i*1.1, speed:sp*(0.94+Math.random()*0.1), wander:i===0?0:Math.min(0.12+0.05*i,0.35)}));
   clouds=[]; puffs=[]; fuel=100; invuln=2; fieldKey=-1; held.length=0; buf.d=-1;
@@ -327,7 +360,7 @@ function updatePlay(dt){
       if(e.stun<=0) moveEnemy(e,e.speed*dt);
     }
     const ep=pos(e);
-    if(!invuln&&e.stun<=0&&Math.hypot(ep.x-pp.x,ep.y-pp.y)<27){ die('¡Te pilló Carabineros!'); return; }
+    if(!invuln&&e.stun<=0&&Math.hypot(ep.x-pp.x,ep.y-pp.y)<27*K){ die('¡Te pilló Carabineros!'); return; }
   }
 }
 function afterDeath(){
@@ -355,60 +388,66 @@ function frame(now){
 
 /* ---------- dibujo ---------- */
 function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):ctx.rect(x,y,w,h);ctx.fill();}
-const PAL=['#8d6e63','#a1887f','#78909c','#9e6b6b','#6f8f72','#8a7f5c','#7b6f94'];
+const ROAD='#df9847', BLOCK='#55c200', EDGE='#c25500';
 function drawWorld(cx0,cy0){
   const x0=Math.max(0,(cx0/T)|0), y0=Math.max(0,(cy0/T)|0);
   const x1=Math.min(W-1,x0+(VW/T|0)+2), y1=Math.min(H-1,y0+(VH/T|0)+2);
+  const B=3;
   for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
-    const px=x*T-cx0, py=y*T-cy0;
-    if(isWall(x,y)){
-      const h=hash((x+1)/3|0,(y+1)/3|0);
-      ctx.fillStyle=PAL[h%PAL.length]; ctx.fillRect(px,py,T,T);
-      ctx.fillStyle='rgba(255,255,255,.18)'; ctx.fillRect(px,py,T,3); ctx.fillRect(px,py,3,T);
-      ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(px,py+T-3,T,3); ctx.fillRect(px+T-3,py,3,T);
-      ctx.fillStyle='rgba(255,240,170,.35)';
-      for(let a=0;a<2;a++)for(let b=0;b<2;b++) if(hash(x*2+a,y*2+b)%3) ctx.fillRect(px+8+a*16,py+8+b*16,8,8);
-    } else {
-      ctx.fillStyle='#3b3e45'; ctx.fillRect(px,py,T,T);
-      ctx.fillStyle='#c9c4a8';
-      if(isWall(x,y-1))ctx.fillRect(px,py,T,3); if(isWall(x,y+1))ctx.fillRect(px,py+T-3,T,3);
-      if(isWall(x-1,y))ctx.fillRect(px,py,3,T); if(isWall(x+1,y))ctx.fillRect(px+T-3,py,3,T);
-      const hz=!isWall(x-1,y)&&!isWall(x+1,y), vt=!isWall(x,y-1)&&!isWall(x,y+1);
-      ctx.fillStyle='#d9b92a';
-      if(hz&&!vt) ctx.fillRect(px+4,py+T/2-1,12,2), ctx.fillRect(px+24,py+T/2-1,12,2);
-      if(vt&&!hz) ctx.fillRect(px+T/2-1,py+4,2,12), ctx.fillRect(px+T/2-1,py+24,2,12);
-      if(baches[idx(x,y)]) drawBache(px+T/2,py+T/2,hash(x,y));
-    }
+    const px=Math.round(x*T-cx0), py=Math.round(y*T-cy0), w=isWall(x,y);
+    ctx.fillStyle=w?BLOCK:ROAD; ctx.fillRect(px,py,T,T);
+    if(!w){ if(baches[idx(x,y)]) drawBache(px+T/2,py+T/2,hash(x,y)); continue; }
+    ctx.fillStyle=EDGE;
+    const iu=y>0&&!isWall(x,y-1), id=y<H-1&&!isWall(x,y+1), il=x>0&&!isWall(x-1,y), ir=x<W-1&&!isWall(x+1,y);
+    if(iu)ctx.fillRect(px,py,T,B); if(id)ctx.fillRect(px,py+T-B,T,B);
+    if(il)ctx.fillRect(px,py,B,T); if(ir)ctx.fillRect(px+T-B,py,B,T);
+    // esquinas cóncavas (el borde debe cerrarse)
+    const dg=(dx,dy)=>{const u=x+dx,v=y+dy;return u>=0&&v>=0&&u<W&&v<H&&!isWall(u,v);};
+    if(!iu&&!il&&dg(-1,-1))ctx.fillRect(px,py,B,B);
+    if(!iu&&!ir&&dg(1,-1))ctx.fillRect(px+T-B,py,B,B);
+    if(!id&&!il&&dg(-1,1))ctx.fillRect(px,py+T-B,B,B);
+    if(!id&&!ir&&dg(1,1))ctx.fillRect(px+T-B,py+T-B,B,B);
+    // esquinas convexas redondeadas
+    ctx.fillStyle=ROAD; const R=5;
+    if(iu&&il)ctx.fillRect(px,py,R,R); if(iu&&ir)ctx.fillRect(px+T-R,py,R,R);
+    if(id&&il)ctx.fillRect(px,py+T-R,R,R); if(id&&ir)ctx.fillRect(px+T-R,py+T-R,R,R);
   }
 }
 function drawBache(x,y,h){
-  ctx.save(); ctx.translate(x,y); ctx.rotate((h%628)/100);
-  ctx.fillStyle='#55575d'; ctx.beginPath(); ctx.ellipse(0,0,19,14,0,0,7); ctx.fill();   // borde roto
-  ctx.fillStyle='#16171b'; ctx.beginPath();
+  ctx.save(); ctx.translate(x,y); ctx.scale(K,K); ctx.rotate((h%628)/100);
+  ctx.fillStyle='#8a5a24'; ctx.beginPath(); ctx.ellipse(0,0,19,14,0,0,7); ctx.fill();   // borde roto
+  ctx.fillStyle='#15100b'; ctx.beginPath();
   ctx.moveTo(-15,0);ctx.lineTo(-9,-9);ctx.lineTo(0,-11);ctx.lineTo(10,-8);ctx.lineTo(16,1);ctx.lineTo(8,10);ctx.lineTo(-3,11);ctx.lineTo(-11,7);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='#26272c'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(15,-6);ctx.lineTo(24,-12);ctx.moveTo(-15,3);ctx.lineTo(-24,8);ctx.stroke();
-  ctx.fillStyle='#2c3a4a'; ctx.beginPath(); ctx.ellipse(-2,1,7,4,0,0,7); ctx.fill();    // charco
+  ctx.strokeStyle='#8a5a24'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(15,-6);ctx.lineTo(24,-12);ctx.moveTo(-15,3);ctx.lineTo(-24,8);ctx.stroke();
+  ctx.fillStyle='#34455c'; ctx.beginPath(); ctx.ellipse(-2,1,7,4,0,0,7); ctx.fill();    // charco
   ctx.restore();
 }
 function drawFlag(x,y){
-  const b=Math.sin(clock*4+x)*1.5;
-  ctx.fillStyle='#ddd'; ctx.fillRect(x-9,y-14+b,2,28);
-  ctx.fillStyle='#fff'; ctx.fillRect(x-7,y-14+b,22,8);
-  ctx.fillStyle='#d52b1e'; ctx.fillRect(x-7,y-6+b,22,8);
-  ctx.fillStyle='#0039a6'; ctx.fillRect(x-7,y-14+b,10,8);
-  ctx.fillStyle='#fff'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.fillText('★',x-2,y-7+b);
+  const b=Math.round(Math.sin(clock*4+x)*1.5);
+  ctx.save(); ctx.translate(x,y); ctx.scale(K,K);
+  ctx.fillStyle='#222'; ctx.fillRect(-10,-15+b,3,30);
+  ctx.fillStyle='#000'; ctx.fillRect(-7,-15+b,24,18);
+  ctx.fillStyle='#fff'; ctx.fillRect(-6,-14+b,22,8);
+  ctx.fillStyle='#d52b1e'; ctx.fillRect(-6,-6+b,22,8);
+  ctx.fillStyle='#0039a6'; ctx.fillRect(-6,-14+b,10,8);
+  ctx.fillStyle='#fff'; ctx.fillRect(-2,-11+b,2,2);ctx.fillRect(-3,-10+b,4,1);ctx.fillRect(-2,-9+b,2,2);
+  ctx.restore();
 }
 function drawTank(x,y){
-  ctx.fillStyle='#c0392b'; rr(x-9,y-10,18,21,3);
-  ctx.fillStyle='#222'; ctx.fillRect(x-4,y-14,8,5);
-  ctx.fillStyle='#fff'; ctx.font='bold 13px "Courier New"'; ctx.textAlign='center'; ctx.fillText('D',x,y+5);
+  ctx.save(); ctx.translate(x,y); ctx.scale(K,K);
+  ctx.fillStyle='#000'; ctx.fillRect(-11,-11,22,23);
+  ctx.fillStyle='#c0392b'; ctx.fillRect(-9,-9,18,19);
+  ctx.fillStyle='#222'; ctx.fillRect(-4,-14,8,5);
+  ctx.fillStyle='#fff'; ctx.font='bold 13px "Courier New"'; ctx.textAlign='center'; ctx.fillText('D',0,5);
+  ctx.restore();
 }
-function drawMicro(x,y,face,flash){
-  ctx.save(); ctx.translate(x,y); ctx.rotate(face*Math.PI/2);
-  ctx.fillStyle='rgba(0,0,0,.35)'; rr(-17,-8,36,20,4);
-  ctx.fillStyle='#f6c90e'; rr(-18,-10,36,20,4);
-  ctx.fillStyle='#111'; ctx.fillRect(-16,-10,30,2); ctx.fillRect(-16,8,30,2);
-  ctx.fillStyle='#ffe66b'; rr(-14,-6,26,12,2);
+function drawMicro(x,y,face,k=K){
+  ctx.save(); ctx.translate(x,y); ctx.scale(k,k); ctx.rotate(face*Math.PI/2);
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-17,-8,36,20);
+  ctx.fillStyle='#000'; ctx.fillRect(-19,-11,38,22);                         // contorno
+  ctx.fillStyle='#ffd21a'; ctx.fillRect(-18,-10,36,20);
+  ctx.fillStyle='#111'; ctx.fillRect(-18,-10,32,2); ctx.fillRect(-18,8,32,2);   // franjas negras
+  ctx.fillStyle='#fff08a'; ctx.fillRect(-14,-6,26,12);
   ctx.fillStyle='#d1a900'; ctx.fillRect(-4,-4,6,8);
   ctx.fillStyle='#1d2740'; ctx.fillRect(13,-7,4,14); ctx.fillRect(-17,-6,2,12);
   ctx.fillStyle='#fff'; ctx.fillRect(17,-9,2,3); ctx.fillRect(17,6,2,3);
@@ -416,17 +455,18 @@ function drawMicro(x,y,face,flash){
   ctx.save(); ctx.rotate(face===2?Math.PI:0); ctx.fillStyle='#111'; ctx.font='bold 7px "Courier New"'; ctx.textAlign='center'; ctx.fillText('MX',5,2.5); ctx.restore();
   ctx.restore();
 }
-function drawCop(x,y,face,stun){
-  ctx.save(); ctx.translate(x,y); ctx.rotate(face*Math.PI/2);
-  ctx.fillStyle='rgba(0,0,0,.35)'; rr(-15,-7,32,18,4);
-  ctx.fillStyle=stun?'#777':'#2f6d3b'; rr(-16,-9,32,18,5);
-  ctx.fillStyle=stun?'#bbb':'#f4f4f0'; ctx.fillRect(-9,-9,12,18);          // puertas blancas
-  ctx.fillStyle=stun?'#999':'#1f4a28'; ctx.fillRect(4,-8,8,16);            // capot
-  ctx.fillStyle='#1b2433'; ctx.fillRect(11,-7,3,14); ctx.fillRect(-15,-6,2,12);
+function drawCop(x,y,face,stun,k=K){
+  ctx.save(); ctx.translate(x,y); ctx.scale(k,k); ctx.rotate(face*Math.PI/2);
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-15,-7,32,18);
+  ctx.fillStyle='#000'; ctx.fillRect(-18,-11,36,22);
+  ctx.fillStyle=stun?'#777':'#1e6b2e'; ctx.fillRect(-17,-10,34,20);
+  ctx.fillStyle=stun?'#bbb':'#f4f4f0'; ctx.fillRect(-9,-10,12,20);          // puertas blancas
+  ctx.fillStyle=stun?'#999':'#154d21'; ctx.fillRect(4,-8,9,16);             // capot
+  ctx.fillStyle='#1b2433'; ctx.fillRect(12,-7,3,14); ctx.fillRect(-16,-6,2,12);
   const on=Math.floor(clock*8)%2===0&&!stun;
-  ctx.fillStyle=on?'#ff2a2a':'#661515'; ctx.fillRect(-4,-6,6,6);
-  ctx.fillStyle=on?'#244':'#2a63ff'; ctx.fillStyle=(!on&&!stun)?'#3a78ff':'#1c2f66'; ctx.fillRect(-4,0,6,6);
-  ctx.fillStyle='#ffd'; ctx.fillRect(15,-8,2,3); ctx.fillRect(15,5,2,3);
+  ctx.fillStyle=stun?'#555':(on?'#ff2a2a':'#661515'); ctx.fillRect(-4,-6,6,6);
+  ctx.fillStyle=stun?'#555':(on?'#1c2f66':'#3a78ff'); ctx.fillRect(-4,0,6,6);
+  ctx.fillStyle='#ffd'; ctx.fillRect(16,-9,2,3); ctx.fillRect(16,6,2,3);
   ctx.restore();
 }
 function drawSmoke(){
@@ -442,29 +482,27 @@ function drawSmoke(){
 let camX=0,camY=0;
 function drawHUD(){
   const X=VW;
-  ctx.fillStyle='#10111c'; ctx.fillRect(X,0,800-VW,VH);
+  ctx.fillStyle='#000'; ctx.fillRect(X,0,800-VW,VH);
   ctx.fillStyle='#f6c90e'; ctx.fillRect(X,0,3,VH);
-  // radar
-  const rx=X+10, ry=10, S=3;
-  ctx.fillStyle='#000'; ctx.fillRect(rx-2,ry-2,W*S+4,H*S+4);
+  const S=4, rx=X+16, ry=8;
+  ctx.fillStyle='#fff'; ctx.fillRect(rx-2,ry-2,W*S+4,H*S+4);
   if(radarImg) ctx.drawImage(radarImg,rx,ry);
-  if(flags) for(const f of flags){ ctx.fillStyle='#ff4040'; ctx.fillRect(rx+f.x*S-1,ry+f.y*S-1,5,5); ctx.fillStyle='#fff'; ctx.fillRect(rx+f.x*S,ry+f.y*S,2,2); }
-  if(tanks) for(const f of tanks){ ctx.fillStyle='#38d96b'; ctx.fillRect(rx+f.x*S-1,ry+f.y*S-1,4,4); }
-  if(enemies) for(const e of enemies){ const p=pos(e); ctx.fillStyle=(Math.floor(clock*6)%2)?'#4a8bff':'#ff3b3b'; ctx.fillRect(rx+p.x/T*S-2,ry+p.y/T*S-2,5,5); }
-  if(player){ const p=pos(player); if(Math.floor(clock*5)%2||state!=='play'){ ctx.fillStyle='#ffe000'; ctx.fillRect(rx+p.x/T*S-2,ry+p.y/T*S-2,5,5);} }
-  ctx.textAlign='left'; ctx.font='bold 13px "Courier New"';
-  let y=ry+H*S+26;
-  const line=(l,v,c='#fff')=>{ctx.fillStyle='#f6c90e';ctx.fillText(l,X+12,y);y+=16;ctx.fillStyle=c;ctx.fillText(String(v).padStart(7,'0'),X+12,y);y+=24;};
-  line('PUNTAJE',score); line('RÉCORD',Math.max(hi,score),'#ff8');
-  ctx.fillStyle='#f6c90e'; ctx.fillText('NIVEL '+level,X+12,y); y+=22;
-  ctx.fillText('BANDERAS',X+12,y); ctx.fillStyle='#fff'; ctx.fillText(' '+(flags?flags.length:0),X+100,y); y+=16;
-  ctx.fillStyle='#f6c90e'; ctx.fillText('BENCINA',X+12,y); y+=6;
-  ctx.fillStyle='#333'; ctx.fillRect(X+12,y,130,12);
+  if(flags) for(const f of flags){ ctx.fillStyle='#ffe000'; ctx.fillRect(rx+f.x*S,ry+f.y*S,S,S); }
+  if(tanks) for(const f of tanks){ ctx.fillStyle='#fff'; ctx.fillRect(rx+f.x*S,ry+f.y*S,S,S); }
+  if(enemies) for(const e of enemies){ const p=pos(e); ctx.fillStyle='#ff3030'; ctx.fillRect(rx+p.x/T*S-S/2,ry+p.y/T*S-S/2,S+1,S+1); }
+  if(player){ const p=pos(player); if(Math.floor(clock*5)%2||state!=='play'){ ctx.fillStyle='#4cf'; ctx.fillRect(rx+p.x/T*S-S/2,ry+p.y/T*S-S/2,S+1,S+1);} }
+  ctx.textAlign='left'; ctx.font='bold 12px "Courier New"';
+  let y=ry+H*S+22;
+  const cell=(l,v,c='#fff')=>{ctx.fillStyle='#f6c90e';ctx.fillText(l,X+10,y);ctx.fillStyle=c;ctx.fillText(String(v).padStart(7,'0'),X+86,y);y+=17;};
+  cell('PUNTAJE',score); cell('RÉCORD',Math.max(hi,score),'#ff8');
+  ctx.fillStyle='#f6c90e'; ctx.fillText('NIVEL '+level,X+10,y); ctx.fillText('BAND.',X+86,y); ctx.fillStyle='#fff'; ctx.fillText(String(flags?flags.length:0).padStart(2,' '),X+136,y); y+=14;
+  ctx.fillStyle='#f6c90e'; ctx.fillText('BENCINA',X+10,y+8);
   const low=fuel<25&&Math.floor(clock*4)%2;
-  ctx.fillStyle=low?'#fff':(fuel>50?'#3ddc6b':fuel>25?'#ffb020':'#ff3b3b'); ctx.fillRect(X+12,y,130*fuel/100,12);
-  y+=30;
-  for(let i=0;i<Math.max(0,lives-(state==='play'||state==='ready'||state==='clear'?1:0));i++) drawMicro(X+30+i*40,y,0);
-  ctx.fillStyle='#888'; ctx.font='11px "Courier New"'; ctx.fillText('ESPACIO = HUMO',X+12,VH-8);
+  ctx.fillStyle='#333'; ctx.fillRect(X+76,y,76,10);
+  ctx.fillStyle=low?'#fff':(fuel>50?'#3ddc6b':fuel>25?'#ffb020':'#ff3b3b'); ctx.fillRect(X+76,y,76*fuel/100,10);
+  y+=22;
+  const n=Math.max(0,lives-(state==='play'||state==='ready'||state==='clear'?1:0));
+  for(let i=0;i<n;i++) drawMicro(X+30+i*44,y+6,0,.9);
 }
 function banner(t,sub){
   ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(0,VH/2-50,VW,100);
@@ -482,8 +520,8 @@ function drawTitle(){
   ctx.fillStyle='#3b3e45'; ctx.fillRect(0,330,800,150);
   ctx.fillStyle='#d9b92a'; for(let x=-((clock*120)%80);x<800;x+=80) ctx.fillRect(x,402,44,5);
   const bx=((clock*160)%1100)-150;
-  ctx.save(); ctx.translate(bx,372); ctx.scale(3,3); drawMicro(0,0,0); ctx.restore();
-  ctx.save(); ctx.translate(bx-130,372); ctx.scale(2.4,2.4); drawCop(0,0,0); ctx.restore();
+  ctx.save(); ctx.translate(bx,372); ctx.scale(3,3); drawMicro(0,0,0,1); ctx.restore();
+  ctx.save(); ctx.translate(bx-130,372); ctx.scale(2.4,2.4); drawCop(0,0,0,false,1); ctx.restore();
   ctx.textAlign='center'; ctx.fillStyle='#000'; ctx.font='bold 76px "Courier New"'; ctx.fillText('MICRO-X',404,124);
   ctx.fillStyle='#f6c90e'; ctx.fillText('MICRO-X',400,120);
   ctx.fillStyle='#fff'; ctx.font='bold 16px "Courier New"';

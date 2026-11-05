@@ -14,3 +14,6 @@ Abre `index.html` en el navegador (no requiere instalación).
 Junta las 10 banderas chilenas para pasar de nivel. Cada bandera seguida vale más (100, 200… 1000).
 Los bidones **D** rellenan bencina. Si caes en un bache o te pilla Carabineros, pierdes una vida.
 El radar de la derecha muestra el mapa completo.
+
+## Mapa
+El laberinto es fijo y reproduce el mapa de Rally-X (32×56 casillas, transcrito de una imagen del mapa original).

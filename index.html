@@ -214,17 +214,40 @@ function beep(f,d,type='square',v=0.05,slide=0){
   g.gain.setValueAtTime(v,a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);
   o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+d);
 }
-/* ---------- música: chiptune original con ritmo de cumbia (se genera en el dispositivo; no usa archivos) ---------- */
-let musicOn = true; try{ musicOn = localStorage.getItem('microx_music')!=='0'; }catch(e){}
+/* ---------- música (se genera en el dispositivo; sin archivos) ----------
+   1 = cumbia chiptune (composición propia) · 2 = «En un largo tour» (Sol y Lluvia, A. Labra), adaptada a sonido tipo Rally-X */
+const MUSIC_NAMES=['NO','CUMBIA','EN UN LARGO TOUR'];
+let musicMode=2; try{ const v=localStorage.getItem('microx_music'); if(v!==null) musicMode=Math.max(0,Math.min(2,+v||0)); }catch(e){}
+let musicOn=musicMode>0, lastMusic=musicMode||2;
 let mGain=null, nBuf=null, mStep=0, mNext=0, mTimer=null;
 const MF=n=>440*Math.pow(2,(n-69)/12);
-const BASS_R=[45,50,52,45], BASS_F=[52,57,59,52];                 // La menor · Re menor · Mi · La menor
+// --- cumbia ---
+const BASS_R=[45,50,52,45], BASS_F=[52,57,59,52];
 const MEL=[69,0,0,72, 0,71,69,0, 67,0,69,0, 0,0,64,0,
            65,0,0,69, 0,67,65,0, 62,0,65,0, 0,0,0,0,
            64,0,0,68, 0,71,68,0, 64,0,68,0, 0,0,0,0,
            69,0,72,0, 71,0,69,0, 67,0,64,0, 69,0,0,0];
+// --- «En un largo tour» (4/4, ♩=100, Mi menor). Cada evento: [paso de semicorchea, nota MIDI, duración en pasos]
+const TOUR_LEN=112;                                  // 7 compases × 16 semicorcheas
+const TOUR_CH=[[52,55,59],[50,54,57],[45,49,52],[52,55,59],[50,54,57],[45,49,52],[52,55,59]];   // Em D A Em D A Em
+const TOUR_LEAD=(()=>{
+  const m=new Array(TOUR_LEN).fill(null), put=(st,n,l)=>{ m[st]=[n,l]; };
+  const half=(o,r)=>{ put(o+1,r[0],2); put(o+3,r[0],1); put(o+4,r[1],2); put(o+6,r[2],2); };   // silencio · corchea · semicorchea · corchea · corchea
+  [[0,[71,76,79]],[1,[74,78,81]],[2,[69,73,76]],[3,[71,76,79]],[4,[74,78,81]]].forEach(([b,r])=>{ half(b*16,r); half(b*16+8,r); });
+  const o=80; put(o+1,69,2); put(o+3,69,1); put(o+4,73,2); put(o+6,76,1); put(o+7,69,2); put(o+9,69,2); put(o+11,69,1); put(o+12,73,2); put(o+14,76,2);   // compás 6
+  put(96,76,15);                                    // compás 7: acorde final
+  return m; })();
+const pulseCache={};
+function pulse(d){
+  if(pulseCache[d]) return pulseCache[d];
+  const N=32, re=new Float32Array(N+1), im=new Float32Array(N+1);
+  for(let n=1;n<=N;n++){ re[n]=2/(n*Math.PI)*Math.sin(n*Math.PI*d); im[n]=2/(n*Math.PI)*(1-Math.cos(n*Math.PI*d)); }
+  return pulseCache[d]=actx.createPeriodicWave(re,im);
+}
 function mTone(type,f,t,dur,vol){
-  const a=actx, o=a.createOscillator(), g=a.createGain(); o.type=type; o.frequency.value=f;
+  const a=actx, o=a.createOscillator(), g=a.createGain();
+  if(typeof type==='string') o.type=type; else o.setPeriodicWave(type);
+  o.frequency.value=f;
   g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   o.connect(g); g.connect(mGain); o.start(t); o.stop(t+dur+0.03);
 }
@@ -240,38 +263,50 @@ function mKick(t){
   g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
   o.connect(g); g.connect(mGain); o.start(t); o.stop(t+0.18);
 }
-function mStepPlay(i,t,sd){
+function cumbiaStep(i,t,sd){
   const bar=(i>>4)&3, s=i&15;
   const note=MEL[i]; if(note) mTone('square',MF(note),t,sd*1.9,0.045);
-  if(s===0||s===8||s===3||s===11) mTone('triangle',MF(BASS_R[bar]),t,sd*2.2,0.16);       // bajo (tumbao)
+  if(s===0||s===8||s===3||s===11) mTone('triangle',MF(BASS_R[bar]),t,sd*2.2,0.16);
   if(s===6||s===14) mTone('triangle',MF(BASS_F[bar]),t,sd*2.2,0.16);
   if(s===0||s===8) mKick(t);
-  if(s===4||s===12) mNoise(t,0.09,0.12,'bandpass',1800);                                  // caja
-  if(s%2===0) mNoise(t,0.035,s%4===0?0.075:0.04,'highpass',5500);                         // güiro
+  if(s===4||s===12) mNoise(t,0.09,0.12,'bandpass',1800);
+  if(s%2===0) mNoise(t,0.035,s%4===0?0.075:0.04,'highpass',5500);
+}
+function tourStep(i,t,sd){
+  const b=(i/16)|0, s=i&15, ch=TOUR_CH[b], ev=TOUR_LEAD[i];
+  if(ev) mTone(pulse(0.25),MF(ev[0]),t,ev[1]*sd*0.94,0.06);                    // melodía: onda de pulso 25 %
+  if(b===6){                                                                    // compás final: acorde sostenido
+    if(s===0){ mTone('triangle',MF(ch[0]),t,sd*15,0.15); mTone(pulse(0.5),MF(67),t,sd*14,0.025); mTone(pulse(0.5),MF(71),t,sd*14,0.025); }
+    return; }
+  if(s%4===0) mTone('triangle',MF(ch[0]),t,sd*3,0.15);                          // bajo: raíz en cada tiempo
+  if(s%4===2) mTone(pulse(0.5),MF(ch[1+((s>>2)&1)]+12),t,sd*1.7,0.022);        // arpegio suave del acorde
 }
 const tempoMul=()=>state!=='play'?1:(fuel<=0?1.35:fuel<12?1.28:fuel<30?1.14:1);
 function musicTick(){
   const a=actx; if(!a||!mGain) return;
   mGain.gain.setTargetAtTime(state==='dying'?0.08:(state==='summary'||state==='title'||state==='over'||state==='win')?0.7:1,a.currentTime,0.12);
   if(mNext<a.currentTime) mNext=a.currentTime+0.02;
-  const sd=60/(104*tempoMul())/4;
-  while(mNext<a.currentTime+0.18){ mStepPlay(mStep,mNext,sd); mNext+=sd; mStep=(mStep+1)&63; }
+  const tour=musicMode===2, len=tour?TOUR_LEN:64, sd=60/((tour?100:104)*tempoMul())/4;
+  while(mNext<a.currentTime+0.18){ if(tour) tourStep(mStep,mNext,sd); else cumbiaStep(mStep,mNext,sd); mNext+=sd; mStep=(mStep+1)%len; }
 }
 function startMusic(){
   const a=audio(); if(!a||mTimer||!musicOn) return;
   try{ if(a.state==='suspended') a.resume(); }catch(e){}
   if(!mGain){ mGain=a.createGain(); mGain.gain.value=0.55; mGain.connect(a.destination);
     nBuf=a.createBuffer(1,a.sampleRate*0.3,a.sampleRate); const d=nBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
-  mNext=a.currentTime+0.05;
+  mNext=a.currentTime+0.05; mStep=0;
   mTimer=setInterval(()=>{ if(paused||document.hidden){ mNext=0; return; } musicTick(); },40);
 }
 function stopMusic(){ if(mTimer){ clearInterval(mTimer); mTimer=null; } }
-function setMusic(v){
-  musicOn=v; try{localStorage.setItem('microx_music',v?'1':'0');}catch(e){}
-  document.body.classList.toggle('muted',!v);
-  if(v) startMusic(); else stopMusic();
+function setMusicMode(m){
+  musicMode=m; musicOn=m>0; if(m>0) lastMusic=m;
+  try{localStorage.setItem('microx_music',String(m));}catch(e){}
+  document.body.classList.toggle('muted',!musicOn);
+  stopMusic(); if(musicOn) startMusic();
 }
+function setMusic(v){ setMusicMode(v?lastMusic:0); }
 function unlockAudio(){ audio(); startMusic(); }
+
 const sfx = {
   flag:  ()=>{beep(660,.08);setTimeout(()=>beep(990,.12),70);},
   fuel:  ()=>{beep(300,.25,'triangle',.07,400);},
@@ -483,13 +518,13 @@ function menuActivate(){
   else if(menuSel===2) startLevel = startLevel%MAXL+1;
   else if(menuSel===3) setZoom(zoomI+1);
   else if(menuSel===4) setCtl(1-ctlMode);
-  else setMusic(!musicOn);
+  else setMusicMode((musicMode+1)%3);
 }
 function menuAdjust(d){
   if(menuSel===2) startLevel=(startLevel-1+d+MAXL)%MAXL+1;
   else if(menuSel===3) setZoom(zoomI+d);
   else if(menuSel===4) setCtl(1-ctlMode);
-  else if(menuSel===5) setMusic(!musicOn);
+  else if(menuSel===5) setMusicMode((musicMode+d+3)%3);
 }
 function menuKey(e){
   if(editBuf!==null){
@@ -900,7 +935,7 @@ function banner(t,sub){
   ctx.fillStyle='#fff'; ctx.font='14px "Courier New"';
   L2.forEach((l,i)=>ctx.fillText(l,VW/2,y0+12+L1.length*(fs+6)+14+i*18));
 }
-function menuItems(){ return ['JUGAR','RÉCORD HISTÓRICO  '+(editBuf!==null?(editBuf||'_')+'_':String(hi).padStart(7,'0')),'NIVEL INICIAL  < '+startLevel+' >','ZOOM  < '+ZNAMES[zoomI]+' >','CONTROL  < '+(ctlMode?'CRUCETA':'DESLIZAR')+' >','MÚSICA  < '+(musicOn?'SÍ':'NO')+' >']; }
+function menuItems(){ return ['JUGAR','RÉCORD HISTÓRICO  '+(editBuf!==null?(editBuf||'_')+'_':String(hi).padStart(7,'0')),'NIVEL INICIAL  < '+startLevel+' >','ZOOM  < '+ZNAMES[zoomI]+' >','CONTROL  < '+(ctlMode?'CRUCETA':'DESLIZAR')+' >','MÚSICA  < '+MUSIC_NAMES[musicMode]+' >']; }
 function chevrons(x0,x1,y,sel){
   ctx.fillStyle=sel?'#f6c90e':'#6f7aa8';
   ctx.beginPath(); ctx.moveTo(x0+8,y-8); ctx.lineTo(x0,y); ctx.lineTo(x0+8,y+8); ctx.fill();
@@ -1067,7 +1102,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   addEventListener('load',()=>{ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} });
 }
 // se expone para pruebas
-window.__mx = {get music(){return {on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
+window.__mx = {get music(){return {mode:musicMode,on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusicMode, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>
 </body>
 </html>

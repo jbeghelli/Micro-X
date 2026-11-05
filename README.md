@@ -55,3 +55,8 @@ La dirección queda en `https://jbeghelli.github.io/micro-x/`. Cada `git push` a
 - **La micro se ve de perfil**, como en el logo: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir (con la patente JCBO04).
 - **Música** chiptune con ritmo de cumbia, generada en el dispositivo (sin archivos). Se acelera cuando queda poca bencina. Botón de silencio junto a la pausa y opción MÚSICA en el menú.
 - **Ajuste de pantalla móvil:** el área de juego usa el tamaño real visible (con barra de Chrome, muescas y barra de gestos).
+
+## Música
+Opción **MÚSICA** del menú: `EN UN LARGO TOUR` (por defecto), `CUMBIA` o `NO`. Se genera en el dispositivo con WebAudio, sin archivos.
+- `EN UN LARGO TOUR` es una adaptación al sonido tipo Rally-X (onda de pulso para la melodía, bajo triangular y arpegio suave) de la partitura de piano «En un largo tour» (Sol y Lluvia, autor Amaro Labra, ♩=100, Mi menor). **La canción pertenece a sus autores**: si el juego se comparte públicamente, conviene pedirles permiso o reemplazar el tema por una composición propia o de dominio público.
+- La música se acelera cuando queda poca bencina.

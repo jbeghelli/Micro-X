@@ -47,18 +47,11 @@
   body.ingame #mutebtn{display:block}
   body.tall #mutebtn{left:60px;top:54px} body.wide #mutebtn{left:60px;top:8px}
   body.tall #pausebtn{left:8px;top:54px} body.wide #pausebtn{left:8px;top:8px}
-  body.paused #pad,body.paused #humo{display:none!important}
+  body.paused #pad{display:none!important}
 
-  /* ---- botón de humo ---- */
-  #humo{width:124px;height:124px;border:0;padding:0;background:none;border-radius:50%;cursor:pointer;
-    filter:drop-shadow(0 7px 8px #000b);transition:transform .06s,filter .06s}
-  #humo svg{width:100%;height:100%;display:block;pointer-events:none}
   body.tall #pad{left:10px;bottom:10px;opacity:.8;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:5px}
   body.tall #pad button{font-size:30px;border-radius:14px}
-  body.tall #humo{right:12px;bottom:12px;width:88px;height:88px;opacity:.92}
   body.wide #pad{left:6px;bottom:6px;opacity:.6;transform:scale(.72);transform-origin:0 100%}
-  body.wide #humo{left:502px;bottom:14px;opacity:.85}
-  #humo.on{transform:scale(.93) translateY(2px);filter:drop-shadow(0 2px 3px #000b) brightness(1.15)}
 </style>
 </head>
 <body class="intitle">
@@ -76,33 +69,6 @@
       <button class="d" data-d="1">▼</button>
     </div>
 
-    <button id="humo" class="ctl" aria-label="Humo">
-      <svg viewBox="0 0 124 124">
-        <defs>
-          <radialGradient id="hFace" cx="50%" cy="38%" r="70%"><stop offset="0" stop-color="#4b4f5e"/><stop offset=".6" stop-color="#1c1e29"/><stop offset="1" stop-color="#08090e"/></radialGradient>
-          <radialGradient id="hPuff" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#f4f4f4"/><stop offset=".55" stop-color="#a9acb5"/><stop offset="1" stop-color="#4c4f5a"/></radialGradient>
-          <linearGradient id="hGloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-          <filter id="hTex" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 -.18"/></filter>
-          <filter id="hSoft"><feTurbulence type="fractalNoise" baseFrequency=".07" numOctaves="3" seed="3" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="6"/><feGaussianBlur stdDeviation=".7"/></filter>
-          <clipPath id="hClip"><circle cx="62" cy="62" r="46"/></clipPath>
-        </defs>
-        <circle cx="62" cy="62" r="60" fill="#0a0a0d"/>
-        <circle cx="62" cy="62" r="54" fill="none" stroke="#f6c90e" stroke-width="11"/>
-        <circle cx="62" cy="62" r="54" fill="none" stroke="#111" stroke-width="11" stroke-dasharray="11.3 11.3"/>
-        <circle cx="62" cy="62" r="59" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1"/>
-        <circle cx="62" cy="62" r="47.5" fill="#000"/>
-        <circle cx="62" cy="62" r="46" fill="url(#hFace)"/>
-        <rect x="16" y="16" width="92" height="92" filter="url(#hTex)" clip-path="url(#hClip)" opacity=".5"/>
-        <g filter="url(#hSoft)">
-          <circle cx="42" cy="58" r="14" fill="url(#hPuff)"/><circle cx="62" cy="48" r="18" fill="url(#hPuff)"/>
-          <circle cx="82" cy="57" r="15" fill="url(#hPuff)"/><circle cx="52" cy="66" r="13" fill="url(#hPuff)"/>
-          <circle cx="73" cy="67" r="13" fill="url(#hPuff)"/>
-        </g>
-        <g fill="#2b2d36" opacity=".8"><circle cx="30" cy="78" r="3"/><circle cx="24" cy="86" r="2"/><circle cx="18" cy="92" r="1.4"/></g>
-        <text x="62" y="97" text-anchor="middle" font-family="Courier New,monospace" font-weight="900" font-size="17" letter-spacing="1.5" stroke="#000" stroke-width="3.4" paint-order="stroke" fill="#f6c90e">HUMO</text>
-        <path d="M24 46 A42 42 0 0 1 100 46 A50 30 0 0 0 24 46z" fill="url(#hGloss)"/>
-      </svg>
-    </button>
   </div>
 </div>
 <script>
@@ -469,12 +435,6 @@ pad.addEventListener('pointerdown',e=>{ e.preventDefault(); unlockAudio(); start
 pad.addEventListener('pointermove',e=>{ if(e.pointerId===padPid) padSet(padHit(e)); });
 ['pointerup','pointercancel'].forEach(ev=>pad.addEventListener(ev,e=>{ if(e.pointerId!==padPid)return; padPid=null; padSet(-1); }));
 
-/* botón de humo */
-const humo=document.getElementById('humo');
-humo.addEventListener('pointerdown',e=>{e.preventDefault();unlockAudio();startIfNeeded();wantSmoke=true;humo.classList.add('on');try{humo.setPointerCapture(e.pointerId);}catch(_){}});
-['pointerup','pointercancel'].forEach(ev=>humo.addEventListener(ev,()=>{wantSmoke=false;humo.classList.remove('on');}));
-
-layout();
 const muteBtn=document.getElementById('mutebtn');
 muteBtn.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); unlockAudio(); setMusic(!musicOn); });
 document.body.classList.toggle('muted',!musicOn);
@@ -501,7 +461,7 @@ cv.addEventListener('pointermove',e=>{
 const swEnd=e=>{
   if(!sw||e.pointerId!==sw.id)return;
   // toque corto (sin deslizar) = soltar humo
-  if(!sw.moved&&state==='play'&&ctlMode===0&&performance.now()-sw.t<350) smokeReq=true;
+  if(!sw.moved&&state==='play'&&performance.now()-sw.t<350) smokeReq=true;
   sw=null;
 };
 cv.addEventListener('pointerup',swEnd); cv.addEventListener('pointercancel',()=>{sw=null;});
@@ -560,7 +520,7 @@ const pausable=()=>state==='play'||state==='ready'||state==='dying'||state==='cl
 function setPaused(v){
   if(v&&!pausable()) return;
   paused=v; pauseSel=0; document.body.classList.toggle('paused',v);
-  if(v){ held.length=0; buf.d=-1; wantSmoke=false; humo.classList.remove('on'); }
+  if(v){ held.length=0; buf.d=-1; wantSmoke=false; }
   else last=performance.now();
 }
 function exitToMenu(){ if(score>hi) setHi(score); setPaused(false); go('title'); }
@@ -819,18 +779,54 @@ function drawMicro(x,y,face,k=K){
   else busEnd(face===1);
   ctx.restore();
 }
+const CG_='#1e6b2e', CGD_='#154d21', CW_='#f4f4f0';
+function copSide(stun){
+  const G=stun?'#777':CG_, GD=stun?'#666':CGD_, W=stun?'#bbb':CW_, on=Math.floor(clock*8)%2===0&&!stun;
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-17,9,37,3);
+  ctx.fillStyle='#000'; ctx.fillRect(-20,-6,40,13); ctx.fillRect(-10,-12,18,7);            // contorno
+  ctx.fillStyle=G; ctx.fillRect(-19,-5,38,11);                                              // carrocería
+  ctx.fillStyle=G; ctx.fillRect(-9,-11,16,6);                                               // cabina
+  ctx.fillStyle=GL_; ctx.fillRect(-8,-10,7,4); ctx.fillRect(0,-10,6,4);                     // ventanas
+  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.fillRect(-8,-10,7,1.2); ctx.fillRect(0,-10,6,1.2);
+  ctx.fillStyle=W; ctx.fillRect(-10,-4,17,8);                                               // puertas blancas
+  ctx.fillStyle=GD; ctx.fillRect(-1.5,-4,1,8); ctx.fillRect(-10,-4,17,1);
+  ctx.fillStyle=GD; ctx.fillRect(7,-4,12,3);                                                // capot
+  ctx.fillStyle='#000'; ctx.fillRect(-4,-15,10,4);                                          // barra de luces
+  ctx.fillStyle=stun?'#555':(on?'#ff2a2a':'#661515'); ctx.fillRect(-3,-14.5,4,3);
+  ctx.fillStyle=stun?'#555':(on?'#1c2f66':'#3a78ff'); ctx.fillRect(1.5,-14.5,4,3);
+  ctx.fillStyle='#fff6c8'; ctx.fillRect(19,-3,2,3.5); ctx.fillStyle='#d62d20'; ctx.fillRect(-21,-3,2,3.5);
+  ctx.fillStyle='#222'; ctx.fillRect(18,3,3,3); ctx.fillRect(-21,3,3,3);
+  for(const cx of [-12,11]){
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cx,5.5,5.8,Math.PI,0); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,6,4.6,0,7); ctx.fill();
+    ctx.fillStyle='#c8ccd6'; ctx.beginPath(); ctx.arc(cx,6,2.4,0,7); ctx.fill(); }
+}
+function copEnd(front,stun){
+  const G=stun?'#777':CG_, GD=stun?'#666':CGD_, W=stun?'#bbb':CW_, on=Math.floor(clock*8)%2===0&&!stun;
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-11,10,24,3);
+  ctx.fillStyle='#000'; ctx.fillRect(-14,2,28,9); ctx.fillRect(-12,-8,24,19); ctx.fillRect(-9,-13,18,6);
+  ctx.fillStyle=G; ctx.fillRect(-11,-7,22,16); ctx.fillRect(-8,-12,16,6);
+  ctx.fillStyle=GL_; ctx.fillRect(-7,-11,14,4);
+  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.fillRect(-7,-11,14,1.2);
+  ctx.fillStyle='#000'; ctx.fillRect(-9,-16,18,4);                                          // barra de luces
+  ctx.fillStyle=stun?'#555':(on?'#ff2a2a':'#661515'); ctx.fillRect(-8,-15.5,8,3);
+  ctx.fillStyle=stun?'#555':(on?'#1c2f66':'#3a78ff'); ctx.fillRect(0,-15.5,8,3);
+  if(front){
+    ctx.fillStyle=GD; ctx.fillRect(-7,-6,14,5);                                             // capot
+    ctx.fillStyle=W; ctx.fillRect(-11,0,22,3);                                              // franja blanca
+    ctx.fillStyle='#fff6c8'; ctx.fillRect(-10,3,4,3); ctx.fillRect(6,3,4,3);
+    ctx.fillStyle='#222'; ctx.fillRect(-4,3,8,3);
+  } else {
+    ctx.fillStyle=W; ctx.fillRect(-11,0,22,3);
+    ctx.fillStyle='#d62d20'; ctx.fillRect(-10,3,4,3); ctx.fillRect(6,3,4,3);
+  }
+  ctx.fillStyle='#222'; ctx.fillRect(-11,7,22,3);
+}
+/* Las patrullas también se ven de perfil: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir. */
 function drawCop(x,y,face,stun,k=K){
-  ctx.save(); ctx.translate(x,y); ctx.scale(k,k); ctx.rotate(face*Math.PI/2);
-  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(-15,-7,32,18);
-  ctx.fillStyle='#000'; ctx.fillRect(-18,-11,36,22);
-  ctx.fillStyle=stun?'#777':'#1e6b2e'; ctx.fillRect(-17,-10,34,20);
-  ctx.fillStyle=stun?'#bbb':'#f4f4f0'; ctx.fillRect(-9,-10,12,20);          // puertas blancas
-  ctx.fillStyle=stun?'#999':'#154d21'; ctx.fillRect(4,-8,9,16);             // capot
-  ctx.fillStyle='#1b2433'; ctx.fillRect(12,-7,3,14); ctx.fillRect(-16,-6,2,12);
-  const on=Math.floor(clock*8)%2===0&&!stun;
-  ctx.fillStyle=stun?'#555':(on?'#ff2a2a':'#661515'); ctx.fillRect(-4,-6,6,6);
-  ctx.fillStyle=stun?'#555':(on?'#1c2f66':'#3a78ff'); ctx.fillRect(-4,0,6,6);
-  ctx.fillStyle='#ffd'; ctx.fillRect(16,-9,2,3); ctx.fillRect(16,6,2,3);
+  ctx.save(); ctx.translate(x,y); ctx.scale(k*1.05,k*1.05);
+  if(face===0||face===2){ if(face===2) ctx.scale(-1,1); copSide(stun); }
+  else copEnd(face===1,stun);
   ctx.restore();
 }
 function drawSmoke(){
@@ -1090,7 +1086,7 @@ function draw(){
   for(const f of floaters){ ctx.fillStyle=`rgba(255,255,255,${Math.min(1,f.t*2)})`; ctx.fillText(f.txt,f.x-camX,f.y-camY-12); }
   if(fuel<=0&&state==='play'){ ctx.fillStyle='#ff5050'; ctx.font='bold 16px "Courier New"'; ctx.fillText('¡SIN BENCINA!  '+Math.max(0,Math.ceil(8-emptyT)),VW/2,tall?70:40); }
   ctx.restore();
-  if(state==='ready') banner(msgT>0?msg:'NIVEL '+level+' de '+MAXL, level===1&&lives===3?(touchUI?'Desliza para girar · Toca = humo':'¡Junta las banderas!'):'');
+  if(state==='ready') banner(msgT>0?msg:'NIVEL '+level+' de '+MAXL, level===1&&lives===3?(touchUI?(ctlMode?'Cruceta para girar · Toca = humo':'Desliza para girar · Toca = humo'):'¡Junta las banderas!'):'');
   if(state==='dying'||state==='clear') banner(msg);
   if(state==='win') banner('¡COMPLETASTE LOS 20 RECORRIDOS!','Puntaje '+score+(score>=hi&&score>0?'  ¡NUEVO RÉCORD!':'')+'  ·  '+(touchUI?'Toca para volver':'Enter para volver'));
   if(state==='over') banner('FIN DEL RECORRIDO','Puntaje '+score+(score>=hi&&score>0?'  ¡NUEVO RÉCORD!':'')+'  ·  '+(touchUI?'Toca para volver':'Enter para volver'));

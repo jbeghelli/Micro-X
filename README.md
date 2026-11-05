@@ -25,7 +25,7 @@ El laberinto es fijo y reproduce el mapa de Rally-X (32×56 casillas, transcrito
 ## Controles táctiles
 Inspirados en Pac-Man (móvil) y Pac-Man 256: la micro avanza sola y tú solo eliges hacia dónde.
 - **Deslizar el dedo** en cualquier parte de la pantalla: gira. El gesto se reconoce al instante y se recuerda hasta que la micro pueda girar (máx. 3 s). El giro en U es inmediato.
-- **Toque corto** en cualquier parte: suelta humo (también hay un botón de humo pequeño en la esquina).
+- **Toque corto** en cualquier parte de la pantalla: suelta humo (ya no hay botón de humo).
 - **Cruceta (opcional)**: en el menú, `CONTROL < CRUCETA >` muestra 4 botones translúcidos en la esquina.
 - Pantalla completa: el HUD es una barra delgada arriba y el radar una ventana pequeña en la esquina.
 - Para probar los controles táctiles en un computador, abre `index.html?touch`.
@@ -60,3 +60,6 @@ La dirección queda en `https://jbeghelli.github.io/micro-x/`. Cada `git push` a
 Opción **MÚSICA** del menú: `EN UN LARGO TOUR` (por defecto), `CUMBIA` o `NO`. Se genera en el dispositivo con WebAudio, sin archivos.
 - `EN UN LARGO TOUR` es una adaptación al sonido tipo Rally-X (onda de pulso para la melodía, bajo triangular y arpegio suave) de «En un largo tour» (Sol y Lluvia; partituras de Amaro Labra y Christopher Romero T., ♩=100, Mi menor; acordes Em · Bm · A · Em · Bm · A · Em). **La canción pertenece a sus autores**: si el juego se comparte públicamente, conviene pedirles permiso o reemplazar el tema por una composición propia o de dominio público.
 - La música se acelera cuando queda poca bencina.
+
+## Patrullas de perfil
+Las radiopatrullas de Carabineros (verde con puertas blancas y barra de luces roja/azul) ahora se ven como la micro: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir.

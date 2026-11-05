@@ -23,6 +23,7 @@ El laberinto es fijo y reproduce el mapa de Rally-X (32×56 casillas, transcrito
 - Menú principal: JUGAR, **RÉCORD HISTÓRICO** (editable: Enter, escribes el número, Enter), NIVEL INICIAL y ZOOM. En juego, `+`/`-` cambian el zoom.
 
 ## Controles táctiles
-- Juego en horizontal; en un celular en vertical, la pantalla se gira sola.
-- **Palanca de arcade** a la izquierda (pulgar izquierdo) y **botón de humo** a la derecha.
+- En vertical: el juego arriba y, abajo, una **cruceta de 4 botones grandes** y el **botón de humo**. En horizontal los controles se superponen al mapa.
+- **Un toque fija la dirección**: la micro gira hacia ahí en la próxima esquina posible (el toque se recuerda hasta 3 s). También puedes mantener pulsado y deslizar el dedo entre botones.
 - Para probar los controles táctiles en un computador, abre `index.html?touch`.
+- El radar es minimalista, como el de Rally-X: fondo negro con puntos (amarillo = banderas, rojo = patrullas, verde = bidones, blanco = tu micro).

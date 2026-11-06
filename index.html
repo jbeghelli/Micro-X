@@ -166,7 +166,7 @@ let field = null, fieldKey = -1, smokeCD = 0, invuln = 0, puffT = 0, roadCount =
 let startTile = {x:0,y:0}, enemySpawns = [];
 
 const FONT='Anton,"Arial Narrow","Roboto Condensed",Impact,sans-serif', F=px=>px+'px '+FONT;
-const VERSION='2026.11.06-c';
+const VERSION='2026.11.06-d';
 try{ document.fonts.load('20px Anton'); }catch(e){}
 const INK='#111', ORA='#f2a516', RED='#d6261c';
 const pad7=n=>String(n).padStart(7,'0');
@@ -849,31 +849,42 @@ function drawFlag(x,y){
   ctx.fillStyle='#fff'; ctx.fillRect(-2,-11+b,2,2);ctx.fillRect(-3,-10+b,4,1);ctx.fillRect(-2,-9+b,2,2);
   ctx.restore();
 }
-/* «Terremoto» chileno: vino pipeño (ámbar) con helado de piña y granadina, con bombilla. Dibujo propio, centrado en (0,0). */
+/* «Terremoto» chileno: vino pipeño de color ámbar rojizo, helado de piña (blanco cremoso) y bombilla. Dibujo propio, centrado en (0,0). */
 function terremoto(){
-  for(let i=0;i<5;i++){                                                             // bombilla a rayas (detrás del helado)
-    const t0=i/5, t1=(i+1)/5; ctx.strokeStyle=i%2?'#ffffff':'#d6261c'; ctx.lineWidth=2.4; ctx.lineCap='butt';
-    ctx.beginPath(); ctx.moveTo(2+8*t0,-3-16*t0); ctx.lineTo(2+8*t1,-3-16*t1); ctx.stroke(); }
-  const glass=()=>{ ctx.beginPath(); ctx.moveTo(-7.5,-6); ctx.lineTo(7.5,-6); ctx.lineTo(5.5,11); ctx.lineTo(-5.5,11); ctx.closePath(); };
-  glass(); ctx.fillStyle='rgba(225,236,255,.40)'; ctx.fill();
-  ctx.save(); glass(); ctx.clip();                                                    // el vino, abajo
-  ctx.fillStyle='#e8952a'; ctx.fillRect(-8,1.5,16,11);
-  ctx.fillStyle='#f7c062'; ctx.fillRect(-8,1.5,16,2.2);
-  ctx.fillStyle='rgba(255,255,255,.3)'; ctx.fillRect(-5.6,3.6,1.8,6.4);
-  ctx.fillStyle='rgba(120,60,0,.25)'; ctx.fillRect(3.4,3.6,2.6,7);
+  const seg=(x0,y0,x1,y1)=>{                                                          // bombilla: base blanca con rayas rojas y azules
+    ctx.lineCap='butt'; ctx.strokeStyle='#f4f4f4'; ctx.lineWidth=3.1; ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+    const n=4; for(let i=0;i<n;i++){ const t0=i/n, t1=(i+.55)/n; ctx.strokeStyle=i%2?'#2f5fd0':'#e0352b'; ctx.lineWidth=2.6;
+      ctx.beginPath(); ctx.moveTo(x0+(x1-x0)*t0,y0+(y1-y0)*t0); ctx.lineTo(x0+(x1-x0)*t1,y0+(y1-y0)*t1); ctx.stroke(); } };
+  seg(3.6,6,4.8,-14); seg(4.8,-14,10.4,-21);
+  const glass=()=>{ ctx.beginPath(); ctx.moveTo(-8.8,-5); ctx.lineTo(8.8,-5); ctx.lineTo(6.1,10.8); ctx.quadraticCurveTo(5.8,12.6,4,12.6); ctx.lineTo(-4,12.6); ctx.quadraticCurveTo(-5.8,12.6,-6.1,10.8); ctx.closePath(); };
+  glass(); ctx.fillStyle='rgba(225,238,250,.30)'; ctx.fill();
+  ctx.save(); glass(); ctx.clip();
+  const lq=ctx.createLinearGradient(0,-3,0,12.6); lq.addColorStop(0,'#f08a32'); lq.addColorStop(.4,'#d9561d'); lq.addColorStop(1,'#a82b0e');   // vino pipeño: ámbar rojizo
+  ctx.fillStyle=lq; ctx.fillRect(-10,-3,20,17);
+  const fm=ctx.createLinearGradient(0,-6,0,2); fm.addColorStop(0,'#fffbf1'); fm.addColorStop(1,'#efe2c8');                        // espuma de helado derretido
+  ctx.fillStyle=fm; ctx.beginPath(); ctx.moveTo(-10,-6); ctx.lineTo(10,-6); ctx.lineTo(10,-0.4);
+  ctx.quadraticCurveTo(7,2.4,4.6,0.6); ctx.quadraticCurveTo(2.4,-0.8,0,1.2); ctx.quadraticCurveTo(-3.4,3.6,-6,0.8); ctx.quadraticCurveTo(-8,-0.8,-10,0.4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(255,247,230,.62)';                                                                                          // finas hebras de helado hundiéndose
+  ctx.beginPath(); ctx.moveTo(5.2,1); ctx.quadraticCurveTo(6.2,3.4,5.6,5.6); ctx.lineTo(4.7,5.5); ctx.quadraticCurveTo(5.1,3.4,4.4,1.2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-0.6,1.4); ctx.quadraticCurveTo(-1,3.2,-0.5,4.2); ctx.lineTo(-1.3,4.2); ctx.quadraticCurveTo(-1.7,3,-1.5,1.6); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.34)'; ctx.fillRect(-7.4,-4.4,1.7,15.4);                                                        // brillo del vidrio
+  ctx.fillStyle='rgba(60,10,0,.22)'; ctx.fillRect(5.2,1.6,1.8,11);                                                               // sombra derecha (solo sobre el vino)
+  ctx.fillStyle='rgba(255,255,255,.26)'; ctx.fillRect(-6,10.2,12,2.4);                                                           // base gruesa
   ctx.restore();
-  ctx.fillStyle='#f7f2e6'; ctx.beginPath(); ctx.ellipse(0,-4.8,7.4,3.6,0,0,7); ctx.fill();   // helado en el vaso
-  ctx.beginPath(); ctx.arc(-1,-9.6,5.6,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(4,-8.4,3.9,0,7); ctx.fill();   // bolas
-  ctx.fillStyle='rgba(190,178,150,.55)'; ctx.beginPath(); ctx.arc(-1,-7.6,5.6,.3,2.9); ctx.fill();
-  ctx.fillStyle='#d6261c';                                                            // granadina chorreando
-  ctx.fillRect(-4.4,-13.4,5.2,1.7); ctx.fillRect(-1.2,-12.2,1.7,4.6); ctx.fillRect(2.6,-11.2,1.7,5.4); ctx.fillRect(-5.4,-8.8,1.7,3.8); ctx.fillRect(5.4,-8.4,1.5,2.6);
-  glass(); ctx.strokeStyle='#d6dce8'; ctx.lineWidth=1; ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.65)'; ctx.fillRect(-7.5,-6.3,15,.9);
+  glass(); ctx.strokeStyle='rgba(215,230,244,.95)'; ctx.lineWidth=.9; ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.75)'; ctx.fillRect(-8.8,-5.4,17.6,.9);                                                        // borde del vaso
+  // montículo de helado de piña (blanco cremoso, sin nada rojo)
+  const sc=ctx.createRadialGradient(-2,-11.4,.8,0,-8.6,6.4); sc.addColorStop(0,'#fffef9'); sc.addColorStop(.6,'#f6eddb'); sc.addColorStop(1,'#dccfae');
+  ctx.fillStyle=sc; ctx.beginPath(); ctx.arc(0,-8.4,5.9,Math.PI*1.04,Math.PI*1.96); ctx.lineTo(5.6,-5.2); ctx.lineTo(-5.6,-5.2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#e9dec3'; for(let i=-2;i<=2;i++){ ctx.beginPath(); ctx.arc(i*2.4,-5.2,1.4,0,Math.PI); ctx.fill(); }
+  ctx.strokeStyle='rgba(170,150,105,.4)'; ctx.lineWidth=.6;
+  for(const [x0,y0,x1,y1] of [[-3.6,-8,-2.2,-5.6],[0.2,-9,1.4,-5.8]]){ ctx.beginPath(); ctx.moveTo(x0,y0); ctx.quadraticCurveTo((x0+x1)/2+.8,(y0+y1)/2-.5,x1,y1); ctx.stroke(); }
+  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.ellipse(-2.4,-11.6,1.5,.9,-.5,0,7); ctx.fill();
 }
 function drawTank(x,y){
   const b=Math.sin(clock*3+x)*1.4;
-  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x,y+13*K,7*K,2*K,0,0,7); ctx.fill();
-  ctx.save(); ctx.translate(x,y+b-2); ctx.scale(K,K); terremoto(); ctx.restore();
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x,y+15*K,8*K,2.2*K,0,0,7); ctx.fill();
+  ctx.save(); ctx.translate(x,y+b-4); ctx.scale(K*1.12,K*1.12); terremoto(); ctx.restore();
 }
 const OR_='#eba126', ORD_='#c98412', WH_='#f3f0e8', GL_='#4a6a92';
 function busSide(){
@@ -1053,7 +1064,7 @@ function drawStats(x,y,w){
   paint(pad7(score),x+w-8,y+60,34,'#fff','right',{sp:1});
   paint('RÉCORD',x+8,y+84,15,ORA,'left',{sp:1}); paint(pad7(Math.max(hi,score)),x+w-8,y+86,24,'#ffd98a','right',{sp:1});
   redBox(x+6,y+94,w-12,28); paint('BANDERAS',x+16,y+116,19,'#fff','left',{sp:1}); paint(String(flags.length),x+w-16,y+117,26,'#fff','right');
-  paint('BENCINA',x+8,y+142,15,ORA,'left',{sp:1}); ctx.save(); ctx.translate(x+72,y+136); ctx.scale(.5,.5); terremoto(); ctx.restore(); fuelBar(x+90,y+130,w-102,14,11);
+  paint('BENCINA',x+8,y+142,15,ORA,'left',{sp:1}); ctx.save(); ctx.translate(x+72,y+139); ctx.scale(.46,.46); terremoto(); ctx.restore(); fuelBar(x+90,y+130,w-102,14,11);
   paint('VIDAS',x+8,y+162,15,ORA,'left',{sp:1}); drawMicro(x+92,y+155,0,.5); paint('×'+livesLeft(),x+112,y+164,24,'#fff','left');
 }
 const HUDT=62;
@@ -1064,7 +1075,7 @@ function drawHUDTall(){
   ctx.fillStyle='#0d0d0f'; ctx.fillRect(0,25,LW,37); ctx.fillStyle='#fff'; ctx.fillRect(0,61,LW,2);
   paint(pad7(score),8,56,28,'#fff','left',{sp:.5});
   redBox(134,30,64,26); paint(flags.length+' BAND.',166,51,19,'#fff','center');
-  paint('BENCINA',206,39,12,ORA,'left',{sp:1}); ctx.save(); ctx.translate(262,33); ctx.scale(.42,.42); terremoto(); ctx.restore(); fuelBar(206,42,88,13,11);
+  paint('BENCINA',206,39,12,ORA,'left',{sp:1}); ctx.save(); ctx.translate(262,37); ctx.scale(.4,.4); terremoto(); ctx.restore(); fuelBar(206,42,88,13,11);
   drawMicro(314,43,0,.42); paint('×'+livesLeft(),328,55,22,'#fff','left');
   ctx.globalAlpha=.78; drawRadar(LW-W*RS-10,HUDT+8); ctx.globalAlpha=1;
 }
@@ -1229,7 +1240,7 @@ function draw(){
     const tw=Math.ceil(ctx.measureText(txt).width)+30, bx=Math.max(4,Math.min(VW-tw-4,sx-tw/2)), by=Math.max(tall?HUDT+8:4,sy-T*0.5-30);
     ctx.fillStyle=bl?'#c4120a':'#5a0b08'; ctx.fillRect(bx,by,tw,20);
     ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.strokeRect(bx+.5,by+.5,tw-1,19);
-    ctx.save(); ctx.translate(bx+11,by+13); ctx.scale(.5,.5); terremoto(); ctx.restore();                       // terremoto
+    ctx.save(); ctx.translate(bx+11,by+14); ctx.scale(.46,.46); terremoto(); ctx.restore();                       // terremoto
     ctx.fillStyle='#fff'; ctx.fillText(txt,bx+22,by+14);
     ctx.fillStyle=bl?'#c4120a':'#5a0b08'; ctx.beginPath(); ctx.moveTo(sx-5,by+20); ctx.lineTo(sx+5,by+20); ctx.lineTo(sx,by+27); ctx.fill();
     if(crit){ ctx.strokeStyle=`rgba(255,40,30,${bl?.55:.15})`; ctx.lineWidth=8; ctx.strokeRect(4,4,VW-8,VH-8); }

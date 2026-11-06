@@ -63,3 +63,7 @@ Opción **MÚSICA** del menú: `EN UN LARGO TOUR` (por defecto), `CUMBIA` o `NO`
 
 ## Patrullas de perfil
 Las radiopatrullas de Carabineros (sedán verde con techo blanco, panel blanco en la puerta delantera con el escudo y «CARABINEROS DE CHILE», baliza amarilla en el techo y llantas de aleación, según foto de referencia) ahora se ven como la micro: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir.
+
+## Diseño tipo letrero de micro
+HUD, menú de inicio, pausa, avisos y resumen usan lettering de letrero de micro amarilla: fondo negro, cabecera naranja, cajas rojas y letras condensadas pintadas a mano (cada letra con un leve desnivel). La tipografía es **Anton** (SIL Open Font License 1.1, `fonts/ANTON-OFL.txt`).
+La cámara va siempre centrada en la micro, así que nunca queda tapada por la barra superior. El menú muestra la versión (abajo a la derecha) para saber qué compilación estás jugando; el juego instalado se actualiza solo al abrirlo con conexión.

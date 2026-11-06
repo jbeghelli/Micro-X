@@ -75,7 +75,7 @@
 <script>
 "use strict";
 /* ===================== MICRO-X =====================
-   Micros amarillas vs. radiopatrullas, baches y banderas.
+   Micros amarillas vs. radiopatrullas, con obras, lomos de toro y quiltros en el camino.
    Un clon con sabor chileno del clásico Rally-X.
 =====================================================*/
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
@@ -149,6 +149,7 @@ function setHi(v){ hi=Math.max(0,Math.min(99999999,v|0)); try{localStorage.setIt
 let VW = 640, VH = 480, LW = 880, LH = 480, CVH = 480, tall = false, RS = 5;
 const MAXLIVES = 5; let summaryLife = 0;
 let paused = false, pauseSel = 0, pauseBtns = [];
+let slowT = 0, brakeT = 0, dogCD = 0;
 let emptyT = 0, lowT = 0, runStats = [], lvStartScore = 0;
 let ctlMode = 0; try{ ctlMode = localStorage.getItem('microx_ctl')==='1'?1:0; }catch(e){}
 function setCtl(v){ ctlMode=v; document.body.classList.toggle('padmode',v===1); try{localStorage.setItem('microx_ctl',v);}catch(e){} }
@@ -157,7 +158,7 @@ const DX = [1,0,-1,0], DY = [0,1,0,-1];     // 0 der, 1 abajo, 2 izq, 3 arriba
 const PLAYER_SPEED = 4.2;                   // casillas/seg
 const TOTAL_FLAGS = 10;
 
-let grid, baches, flags = [], tanks = [], enemies = [], clouds = [], puffs = [], floaters = [];
+let grid, baches, lomos, dogs = [], flags = [], tanks = [], enemies = [], clouds = [], puffs = [], floaters = [];
 let player, level = 1, score = 0, lives = 3, combo = 1, fuel = 100;
 let hi = 0; try { hi = +localStorage.getItem('microx_hi')||0; } catch(e){}
 let state = 'title', stateT = 0, clock = 0, msg = '', msgT = 0;
@@ -165,7 +166,7 @@ let field = null, fieldKey = -1, smokeCD = 0, invuln = 0, puffT = 0, roadCount =
 let startTile = {x:0,y:0}, enemySpawns = [];
 
 const FONT='Anton,"Arial Narrow","Roboto Condensed",Impact,sans-serif', F=px=>px+'px '+FONT;
-const VERSION='2026.11.06-b';
+const VERSION='2026.11.06-c';
 try{ document.fonts.load('20px Anton'); }catch(e){}
 const INK='#111', ORA='#f2a516', RED='#d6261c';
 const pad7=n=>String(n).padStart(7,'0');
@@ -287,6 +288,8 @@ const sfx = {
   smoke: ()=>{beep(120,.35,'sawtooth',.06,-60);},
   crash: ()=>{beep(200,.6,'sawtooth',.09,-170);},
   clear: ()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.15),i*110));},
+  bump:  ()=>{beep(95,.16,'sawtooth',.09,-35);},
+  dog:   ()=>{beep(540,.07,'square',.05,-220);setTimeout(()=>beep(430,.1,'square',.05,-160),90);},
   oneup: ()=>{[659,784,1047,1319,1568].forEach((f,i)=>setTimeout(()=>beep(f,.13,'square',.05),i*85));},
   stun:  ()=>{beep(880,.1,'square',.04,-500);},
   low:   ()=>{beep(520,.10,'square',.05);setTimeout(()=>beep(380,.14,'square',.05),110);},
@@ -317,7 +320,7 @@ function roadTiles(){ const r=[]; for(let y=0;y<H;y++)for(let x=0;x<W;x++) if(!i
 function setupLevel(n){
   level=n; genMap();
   runStats[n-1]={pts:0,t:0,fuel:0,deaths:0,smokes:0,stuns:0}; lvStartScore=score; lowT=0;
-  baches = new Uint8Array(W*H);
+  baches = new Uint8Array(W*H); lomos = new Uint8Array(W*H); dogs = [];       // baches = obras en la calzada
   startTile = {x:16, y:27};
   const road = shuffle(roadTiles());
   const far = (x,y,m)=>Math.abs(x-startTile.x)+Math.abs(y-startTile.y)>m;
@@ -333,15 +336,25 @@ function setupLevel(n){
   };
   for(let i=0;i<TOTAL_FLAGS;i++) pick(8,5,flags);
   for(let i=0;i<3;i++) pick(10,12,tanks);
-  // baches (sin aislar ninguna parte del mapa)
-  const nB = Math.round(8+30*((n-1)/(MAXL-1)));
+  // obras en la calzada (bloquean el paso; sin aislar ninguna parte del mapa)
+  const nB = Math.round(4+16*((n-1)/(MAXL-1)));
   let placed=0, nonBache=roadCount;
   for(const [x,y] of road){
     if(placed>=nB)break;
     if(taken.has(idx(x,y))||!far(x,y,4))continue;
     baches[idx(x,y)]=1;
     const d=bfs(startTile.x,startTile.y,true); let ok=0; for(let k=0;k<d.length;k++) if(d[k]!==9999) ok++;
-    if(ok===nonBache-1){ placed++; nonBache--; } else baches[idx(x,y)]=0;
+    if(ok===nonBache-1){ placed++; nonBache--; taken.add(idx(x,y)); } else baches[idx(x,y)]=0;
+  }
+  // lomos de toro: solo en tramos rectos de calle (no bloquean, solo frenan)
+  const nL = Math.round(4+10*((n-1)/(MAXL-1))); let pl=0;
+  for(const [x,y] of road){
+    if(pl>=nL)break; const i=idx(x,y);
+    if(taken.has(i)||!far(x,y,4)) continue;
+    const hz=!isWall(x-1,y)&&!isWall(x+1,y)&&isWall(x,y-1)&&isWall(x,y+1), vt=!isWall(x,y-1)&&!isWall(x,y+1)&&isWall(x-1,y)&&isWall(x+1,y);
+    if(!hz&&!vt) continue;
+    if(lomos[i-1]||lomos[i+1]||lomos[i-W]||lomos[i+W]) continue;
+    lomos[i]=1; taken.add(i); pl++;
   }
   // enemigos
   const dS = bfs(startTile.x,startTile.y,true);
@@ -354,6 +367,14 @@ function setupLevel(n){
     enemySpawns.push({x,y});
   }
   while(enemySpawns.length<nE){ const [x,y]=far2[rnd(far2.length)]; enemySpawns.push({x,y}); }
+  // quiltros (perros callejeros) que andan por las calles
+  const nD = Math.round(2+4*((n-1)/(MAXL-1)));
+  for(const [x,y] of road){
+    if(dogs.length>=nD)break; const i=idx(x,y);
+    if(taken.has(i)||!far(x,y,8)) continue;
+    if(dogs.some(d=>Math.abs(d.cx-x)+Math.abs(d.cy-y)<10)) continue;
+    dogs.push({cx:x,cy:y,dir:-1,t:0,face:Math.random()<.5?0:2,pause:Math.random()*2,speed:1.1,scare:0,coat:dogs.length%3});
+  }
   fuel=100; combo=1; clouds=[]; puffs=[]; floaters=[];
   resetActors();
 }
@@ -362,7 +383,7 @@ function resetActors(){
   const sp = 2.5+1.5*diff();
   enemies = enemySpawns.map((s,i)=>({cx:s.x,cy:s.y,dir:-1,t:0,face:0,stun:0,
     delay:0.8+i*1.1, speed:sp*(0.94+Math.random()*0.1), wander:i===0?0.1*(1-diff()):0.08+0.32*(1-diff())}));
-  clouds=[]; puffs=[]; fuel=100; emptyT=0; invuln=2; fieldKey=-1; held.length=0; buf.d=-1;
+  clouds=[]; puffs=[]; fuel=100; emptyT=0; slowT=0; brakeT=0; dogCD=0; invuln=2; fieldKey=-1; held.length=0; buf.d=-1;
 }
 
 /* ---------- entrada ---------- */
@@ -564,7 +585,8 @@ const pos=e=>({x:(e.cx+0.5+(e.dir>=0?DX[e.dir]*e.t:0))*T, y:(e.cy+0.5+(e.dir>=0?
 
 function arrive(){
   const i=idx(player.cx,player.cy);
-  if(baches[i]){ die('¡Caíste en un bache!'); return true; }
+  if(baches[i]){ die('¡Chocaste con las obras!'); return true; }
+  if(lomos[i]){ slowT=1.0; sfx.bump(); }
   for(let k=flags.length-1;k>=0;k--) if(flags[k].x===player.cx&&flags[k].y===player.cy){
     flags.splice(k,1); const pts=100*combo; score+=pts;
     floaters.push({x:(player.cx+.5)*T,y:(player.cy+.5)*T,t:1,txt:'+'+pts});
@@ -594,8 +616,43 @@ function moveEnemy(e,dist){
   while(dist>1e-6){
     if(e.t===0){ e.dir=chooseDir(e); if(e.dir<0)return; e.face=e.dir; }
     const need=1-e.t;
-    if(dist>=need){ e.t=0; e.cx+=DX[e.dir]; e.cy+=DY[e.dir]; dist-=need; }
+    if(dist>=need){ e.t=0; e.cx+=DX[e.dir]; e.cy+=DY[e.dir]; dist-=need; if(lomos[idx(e.cx,e.cy)]) e.slow=1.0; }
     else { e.t+=dist; dist=0; }
+  }
+}
+/* quiltros: caminan por las calles, a veces se detienen; no matan, pero te frenan, te quitan bencina y frenan a las patrullas */
+function dogChoose(d){
+  const c=[]; for(let k=0;k<4;k++){ const nx=d.cx+DX[k], ny=d.cy+DY[k]; if(!isWall(nx,ny)&&!baches[idx(nx,ny)]) c.push(k); }
+  if(!c.length) return -1;
+  const rev=d.dir>=0?(d.dir+2)%4:-1, nr=c.filter(k=>k!==rev), pool=nr.length?nr:c;
+  if(d.dir>=0&&pool.includes(d.dir)&&Math.random()<0.8) return d.dir;
+  return pool[rnd(pool.length)];
+}
+function moveDog(d,dist){
+  while(dist>1e-6){
+    if(d.t===0){ d.dir=dogChoose(d); if(d.dir<0)return; d.face=d.dir; }
+    const need=1-d.t;
+    if(dist>=need){ d.t=0; d.cx+=DX[d.dir]; d.cy+=DY[d.dir]; dist-=need; }
+    else { d.t+=dist; dist=0; }
+  }
+}
+function updateDogs(dt,pp){
+  dogCD=Math.max(0,dogCD-dt);
+  for(const d of dogs){
+    if(d.pause>0) d.pause-=dt;
+    else { if(d.t===0&&d.scare<=0&&Math.random()<dt*0.15) d.pause=1+Math.random()*2.5; else moveDog(d,(d.scare>0?2.6:d.speed)*dt); }
+    if(d.scare>0) d.scare-=dt;
+    const dp=pos(d);
+    for(const e of enemies){                                   // los perros frenan a las patrullas
+      if(e.delay>0||e.stun>0||e.dogCD>0) continue; const ep=pos(e);
+      if(Math.hypot(ep.x-dp.x,ep.y-dp.y)<T*0.6){ e.stun=1.2; e.dogCD=3; sfx.dog(); }
+    }
+    if(!invuln&&dogCD<=0&&Math.hypot(pp.x-dp.x,pp.y-dp.y)<T*0.55){      // choque con la micro
+      fuel=Math.max(0,fuel-18); score=Math.max(0,score-100); brakeT=0.8; dogCD=1.6; sfx.dog();
+      floaters.push({x:dp.x,y:dp.y,t:1,txt:'¡GUAU!  -18'});
+      if(d.dir>=0&&d.t>0){ d.cx+=DX[d.dir]; d.cy+=DY[d.dir]; d.t=1-d.t; d.dir=(d.dir+2)%4; d.face=d.dir; }
+      d.scare=1.6; d.pause=0;
+    }
   }
 }
 
@@ -613,7 +670,8 @@ function levelClear(){
   say((level>=MAXL?'¡ÚLTIMO RECORRIDO COMPLETADO!':'¡Recorrido completo!')+'  Bonus bencina +'+bonus,2.4); sfx.clear(); go('clear');
 }
 function updatePlay(dt){
-  const spd = PLAYER_SPEED*(fuel>0?1:0.45);
+  slowT=Math.max(0,slowT-dt); brakeT=Math.max(0,brakeT-dt);
+  const spd = PLAYER_SPEED*(fuel>0?1:0.45)*(slowT>0?0.5:1)*(brakeT>0?0.3:1);
   if(player.dir>=0||wantDir()>=0){
     const before=fuel;
     movePlayer(spd*dt);
@@ -650,11 +708,13 @@ function updatePlay(dt){
     else {
       const ep=pos(e);
       for(const c of clouds) if(Math.hypot(ep.x-c.x,ep.y-c.y)<T*0.95){ e.stun=3-diff(); runStats[level-1].stuns++; sfx.stun(); score+=20; break; }
-      if(e.stun<=0) moveEnemy(e,e.speed*dt);
+      if(e.stun<=0) moveEnemy(e,e.speed*(e.slow>0?0.5:1)*dt);
     }
+    if(e.slow>0) e.slow-=dt; if(e.dogCD>0) e.dogCD-=dt;
     const ep=pos(e);
     if(!invuln&&e.stun<=0&&Math.hypot(ep.x-pp.x,ep.y-pp.y)<27*K){ die('¡Te pilló Carabineros!'); return; }
   }
+  updateDogs(dt,pp);
 }
 function afterDeath(){
   lives--; combo=1; if(runStats[level-1]) runStats[level-1].deaths++;
@@ -692,7 +752,7 @@ function drawWorld(cx0,cy0){
   for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
     const px=Math.round(x*T-cx0), py=Math.round(y*T-cy0), w=isWall(x,y);
     ctx.fillStyle=w?BLOCK:ROAD; ctx.fillRect(px,py,T,T);
-    if(!w){ if(baches[idx(x,y)]) drawBache(px+T/2,py+T/2,hash(x,y));
+    if(!w){ const ii=idx(x,y); if(lomos[ii]) drawLomo(px+T/2,py+T/2,x,y); if(baches[ii]) drawObra(px+T/2,py+T/2);
       ctx.fillStyle=EDGE; if(x===0)ctx.fillRect(px,py,B,T); if(x===W-1)ctx.fillRect(px+T-B,py,B,T); if(y===0)ctx.fillRect(px,py,T,B); if(y===H-1)ctx.fillRect(px,py+T-B,T,B);
       continue; }
     ctx.fillStyle=EDGE;
@@ -711,13 +771,71 @@ function drawWorld(cx0,cy0){
     if(id&&il)ctx.fillRect(px,py+T-R,R,R); if(id&&ir)ctx.fillRect(px+T-R,py+T-R,R,R);
   }
 }
-function drawBache(x,y,h){
-  ctx.save(); ctx.translate(x,y); ctx.scale(K,K); ctx.rotate((h%628)/100);
-  ctx.fillStyle='#8a5a24'; ctx.beginPath(); ctx.ellipse(0,0,19,14,0,0,7); ctx.fill();   // borde roto
-  ctx.fillStyle='#15100b'; ctx.beginPath();
-  ctx.moveTo(-15,0);ctx.lineTo(-9,-9);ctx.lineTo(0,-11);ctx.lineTo(10,-8);ctx.lineTo(16,1);ctx.lineTo(8,10);ctx.lineTo(-3,11);ctx.lineTo(-11,7);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='#8a5a24'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(15,-6);ctx.lineTo(24,-12);ctx.moveTo(-15,3);ctx.lineTo(-24,8);ctx.stroke();
-  ctx.fillStyle='#34455c'; ctx.beginPath(); ctx.ellipse(-2,1,7,4,0,0,7); ctx.fill();    // charco
+/* Obra en la calzada: pozo con tablón, valla a rayas con lámpara intermitente y conos */
+function cone(cx,by){
+  ctx.fillStyle='#111'; ctx.fillRect(cx-5.5,by-1.5,11,2.5);
+  ctx.fillStyle='#ff7a1a'; ctx.beginPath(); ctx.moveTo(cx-4.4,by-1.5); ctx.lineTo(cx+4.4,by-1.5); ctx.lineTo(cx+1.5,by-13); ctx.lineTo(cx-1.5,by-13); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(cx-3.2,by-5.2); ctx.lineTo(cx+3.2,by-5.2); ctx.lineTo(cx+2.5,by-8); ctx.lineTo(cx-2.5,by-8); ctx.closePath(); ctx.fill();
+}
+function drawObra(x,y){
+  ctx.save(); ctx.translate(x,y); ctx.scale(K,K);
+  ctx.fillStyle='#6b4a2a'; ctx.fillRect(-14,-1,28,15); ctx.fillStyle='#1c130b'; ctx.fillRect(-12,1,24,11); ctx.fillStyle='#2e1f11'; ctx.fillRect(-12,1,24,3);   // pozo
+  ctx.fillStyle='#b58a4a'; ctx.fillRect(-15,5,30,3); ctx.fillStyle='#8a6530'; ctx.fillRect(-15,7.4,30,.9);                                                 // tablón
+  ctx.fillStyle='#444'; ctx.fillRect(-14,-4,2,8); ctx.fillRect(12,-4,2,8);                                                                              // patas de la valla
+  ctx.fillStyle='#fff'; ctx.fillRect(-17,-12,34,8);
+  ctx.fillStyle='#d6261c'; for(let i=-17;i<13;i+=8.5){ ctx.beginPath(); ctx.moveTo(i,-4); ctx.lineTo(i+4.2,-4); ctx.lineTo(i+8.2,-12); ctx.lineTo(i+4,-12); ctx.closePath(); ctx.fill(); }
+  ctx.strokeStyle='#222'; ctx.lineWidth=1; ctx.strokeRect(-17,-12,34,8);
+  const on=Math.floor(clock*3)%2===0;                                                                                                                   // lámpara
+  ctx.fillStyle='#333'; ctx.fillRect(-2,-15.5,4,3.5); ctx.fillStyle=on?'#ffc400':'#7a5a00'; ctx.fillRect(-2.6,-18,5.2,3);
+  if(on){ ctx.fillStyle='rgba(255,196,0,.3)'; ctx.beginPath(); ctx.arc(0,-16.5,6.5,0,7); ctx.fill(); }
+  cone(-15,16); cone(15,16);
+  ctx.restore();
+}
+/* Lomo de toro: franja amarilla y negra con relieve, cruzando la calle */
+function drawLomo(x,y,tx,ty){
+  const hz=!isWall(tx-1,ty)&&!isWall(tx+1,ty);
+  ctx.save(); ctx.translate(x,y); ctx.scale(K,K); if(!hz) ctx.rotate(Math.PI/2);
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(-6.5,-19,13,40);
+  ctx.save(); ctx.beginPath(); ctx.rect(-6,-20,12,40); ctx.clip();
+  ctx.fillStyle='#f2c200'; ctx.fillRect(-6,-20,12,40);
+  ctx.fillStyle='#111'; for(let k=-26;k<26;k+=10){ ctx.beginPath(); ctx.moveTo(-6,k); ctx.lineTo(6,k-6); ctx.lineTo(6,k); ctx.lineTo(-6,k+6); ctx.closePath(); ctx.fill(); }
+  const g=ctx.createLinearGradient(-6,0,6,0); g.addColorStop(0,'rgba(255,255,255,.45)'); g.addColorStop(.45,'rgba(255,255,255,0)'); g.addColorStop(1,'rgba(0,0,0,.40)');
+  ctx.fillStyle=g; ctx.fillRect(-6,-20,12,40); ctx.restore();
+  ctx.strokeStyle='#5a4a00'; ctx.lineWidth=1; ctx.strokeRect(-6,-20,12,40);
+  ctx.restore();
+}
+/* Quiltro (perro callejero) de perfil: de lado, de frente o de espaldas */
+const DOGC=[['#b9884e','#7a5230'],['#5b4636','#3a2c20'],['#d9c08a','#a98a54']];
+function dogSide(d,step,moving){
+  const [C,CD]=DOGC[d.coat%3], W='#f3ecdc', a=moving?Math.sin(step)*2.2:0, b=moving?Math.sin(step+Math.PI)*2.2:0;
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(-10,7,23,2);
+  ctx.fillStyle=CD; ctx.fillRect(-12,-5,2.4,5); ctx.fillRect(-11,-6.4,3.4,2);                       // cola
+  ctx.fillRect(-7+a,1,2.6,6.5); ctx.fillRect(-3.6+b,1,2.6,6.5); ctx.fillRect(3+a,1,2.6,6.5); ctx.fillRect(6.4+b,1,2.6,6.5);   // patas
+  ctx.fillStyle=W; ctx.fillRect(-7+a,5.6,2.6,1.9); ctx.fillRect(3+a,5.6,2.6,1.9);
+  ctx.fillStyle=C; ctx.fillRect(-10,-4.4,18,7.4); ctx.fillStyle=W; ctx.fillRect(3,-1,5.4,4);        // cuerpo y pecho
+  ctx.fillStyle=C; ctx.fillRect(6,-9,8.4,7.6); ctx.fillStyle='#d9a96d'; ctx.fillRect(11.6,-5,4.4,3.4);   // cabeza y hocico
+  ctx.fillStyle='#111'; ctx.fillRect(15,-5.2,1.8,1.8); ctx.fillRect(10.6,-7,1.6,1.6);               // nariz y ojo
+  ctx.fillStyle=CD; ctx.fillRect(6.4,-10,3.2,5.6);                                                  // oreja
+}
+function dogEnd(d,step,moving,front){
+  const [C,CD]=DOGC[d.coat%3], W='#f3ecdc', a=moving?Math.sin(step)*1.6:0;
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(-8,9,17,2);
+  ctx.fillStyle=CD; ctx.fillRect(-5+a,3,2.8,7); ctx.fillRect(2.4-a,3,2.8,7);
+  ctx.fillStyle=C; ctx.fillRect(-6.4,-3,13,9);
+  if(front){
+    ctx.fillStyle=W; ctx.fillRect(-2.6,0,5.2,6);
+    ctx.fillStyle=C; ctx.fillRect(-5,-11,10,9); ctx.fillStyle=CD; ctx.fillRect(-6.4,-11,2.2,6); ctx.fillRect(4.2,-11,2.2,6);
+    ctx.fillStyle='#d9a96d'; ctx.fillRect(-2.2,-5.4,4.4,3.4); ctx.fillStyle='#111'; ctx.fillRect(-1.2,-5.6,2.4,1.6); ctx.fillRect(-3.6,-8.6,1.5,1.5); ctx.fillRect(2.1,-8.6,1.5,1.5);
+  } else {
+    ctx.fillStyle=C; ctx.fillRect(-5,-8,10,6); ctx.fillStyle=CD; ctx.fillRect(-6.4,-8,2.2,5); ctx.fillRect(4.2,-8,2.2,5);
+    ctx.fillRect(-1.2,-4,2.4,7); ctx.fillRect(-2,-6.4,4,2.6);                                           // cola
+  }
+}
+function drawDog(x,y,d){
+  const moving=d.pause<=0&&d.dir>=0, step=clock*10;
+  ctx.save(); ctx.translate(x,y); ctx.scale(K*1.15,K*1.15);
+  if(d.face===0||d.face===2){ if(d.face===2) ctx.scale(-1,1); dogSide(d,step,moving); }
+  else dogEnd(d,step,moving,d.face===1);
   ctx.restore();
 }
 function drawFlag(x,y){
@@ -1095,6 +1213,7 @@ function draw(){
   drawWorld(camX,camY);
   for(const f of tanks) drawTank(f.x*T+T/2-camX,f.y*T+T/2-camY);
   for(const f of flags) drawFlag(f.x*T+T/2-camX,f.y*T+T/2-camY);
+  for(const d of dogs){ const p=pos(d); drawDog(p.x-camX,p.y-camY,d); }
   for(const e of enemies){ if(e.delay>0&&Math.floor(clock*10)%2) continue; const p=pos(e); drawCop(p.x-camX,p.y-camY,e.face,e.stun>0);
     if(e.stun>0){ ctx.fillStyle='#ff0'; ctx.font='14px sans-serif'; ctx.textAlign='center'; ctx.fillText('✦',p.x-camX+Math.cos(clock*8)*12,p.y-camY-14+Math.sin(clock*8)*4); } }
   if(state==='dying'){
@@ -1138,7 +1257,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
       r.update(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) r.update(); }); }).catch(()=>{}); }catch(e){} });
 }
 // se expone para pruebas
-window.__mx = {get tanks(){return tanks}, setLives(v){lives=v}, get enemies(){return enemies}, get player(){return player}, get music(){return {mode:musicMode,on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusicMode, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
+window.__mx = {get dogs(){return dogs}, get lomos(){return lomos}, get obras(){return baches}, get slowT(){return slowT}, get tanks(){return tanks}, setLives(v){lives=v}, get enemies(){return enemies}, get player(){return player}, get music(){return {mode:musicMode,on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusicMode, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>
 </body>
 </html>

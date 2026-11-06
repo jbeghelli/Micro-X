@@ -1,7 +1,7 @@
 # Micro-X
 
 Juego de navegador al estilo Rally-X, con sabor chileno: conduces una **micro amarilla**
-por un laberinto de calles de Santiago, esquivando **baches** y huyendo de las
+por un laberinto de calles de Santiago, esquivando **obras, lomos de toro y quiltros** y huyendo de las
 **radiopatrullas de Carabineros** (verde y blanco, con balizas).
 
 ## Cómo jugar
@@ -12,14 +12,14 @@ Abre `index.html` en el navegador (no requiere instalación).
 - **P**: pausa
 
 Junta las 10 banderas chilenas para pasar de nivel. Cada bandera seguida vale más (100, 200… 1000).
-Los bidones **D** rellenan bencina. Si caes en un bache o te pilla Carabineros, pierdes una vida.
+Los bidones **D** rellenan bencina. Si chocas con unas obras o te pilla Carabineros, pierdes una vida.
 El radar de la derecha muestra el mapa completo.
 
 ## Mapa
 El laberinto es fijo y reproduce el mapa de Rally-X (32×56 casillas, transcrito de una imagen del mapa original).
 
 ## Niveles y menú
-- 20 niveles con dificultad gradual (más baches y patrullas, patrullas más rápidas, menos bencina). Al completar el 20 ganas.
+- 20 niveles con dificultad gradual (más obras, lomos, quiltros y patrullas, patrullas más rápidas, menos bencina). Al completar el 20 ganas.
 - Menú principal: JUGAR, **RÉCORD HISTÓRICO** (editable: Enter, escribes el número, Enter), NIVEL INICIAL y ZOOM. En juego, `+`/`-` cambian el zoom.
 
 ## Controles táctiles
@@ -71,3 +71,9 @@ La cámara va siempre centrada en la micro, así que nunca queda tapada por la b
 ## Terremoto y vida extra
 - El ícono de bencina es un **terremoto** (vino pipeño con helado de piña y granadina, con bombilla): los bidones del mapa, el aviso de poca bencina y la barra de arriba. Es solo estético: sigue dando +30 de bencina.
 - Cada **3 niveles completados** ganas **1 vida extra** (máximo 5). Se anuncia en la pantalla de resumen.
+
+## Obstáculos
+Los baches se reemplazaron por tres obstáculos, que crecen de a poco entre el nivel 1 y el 20:
+- **Obras en la calzada** (pozo con tablón, valla a rayas con lámpara y conos): bloquean el paso. Si chocas, pierdes una vida (4 en el nivel 1 → 20 en el 20). Las patrullas las esquivan.
+- **Lomos de toro** (franja amarilla y negra en tramos rectos): no matan; te frenan a la mitad por 1 segundo, y también frenan a las patrullas (4 → 14).
+- **Quiltros** (perros callejeros): caminan por las calles y a veces se detienen. Si los tocas pierdes 18 de bencina y 100 puntos, y te frenas un momento; el perro sale corriendo. Cuando un perro se cruza con una patrulla, la deja detenida 1,2 s (2 → 6).

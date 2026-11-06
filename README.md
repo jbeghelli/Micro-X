@@ -67,3 +67,7 @@ Las radiopatrullas de Carabineros (sedán verde con techo blanco, panel blanco e
 ## Diseño tipo letrero de micro
 HUD, menú de inicio, pausa, avisos y resumen usan lettering de letrero de micro amarilla: fondo negro, cabecera naranja, cajas rojas y letras condensadas pintadas a mano (cada letra con un leve desnivel). La tipografía es **Anton** (SIL Open Font License 1.1, `fonts/ANTON-OFL.txt`).
 La cámara va siempre centrada en la micro, así que nunca queda tapada por la barra superior. El menú muestra la versión (abajo a la derecha) para saber qué compilación estás jugando; el juego instalado se actualiza solo al abrirlo con conexión.
+
+## Terremoto y vida extra
+- El ícono de bencina es un **terremoto** (vino pipeño con helado de piña y granadina, con bombilla): los bidones del mapa, el aviso de poca bencina y la barra de arriba. Es solo estético: sigue dando +30 de bencina.
+- Cada **3 niveles completados** ganas **1 vida extra** (máximo 5). Se anuncia en la pantalla de resumen.

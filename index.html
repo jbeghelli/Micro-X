@@ -147,6 +147,7 @@ const diff = ()=>(level-1)/(MAXL-1);            // 0 (nivel 1) .. 1 (nivel 20)
 let startLevel = 1, menuSel = 0, editBuf = null, camSnap = true, fdt = 0.016;
 function setHi(v){ hi=Math.max(0,Math.min(99999999,v|0)); try{localStorage.setItem('microx_hi',hi);}catch(e){} }
 let VW = 640, VH = 480, LW = 880, LH = 480, CVH = 480, tall = false, RS = 5;
+const MAXLIVES = 5; let summaryLife = 0;
 let paused = false, pauseSel = 0, pauseBtns = [];
 let emptyT = 0, lowT = 0, runStats = [], lvStartScore = 0;
 let ctlMode = 0; try{ ctlMode = localStorage.getItem('microx_ctl')==='1'?1:0; }catch(e){}
@@ -286,6 +287,7 @@ const sfx = {
   smoke: ()=>{beep(120,.35,'sawtooth',.06,-60);},
   crash: ()=>{beep(200,.6,'sawtooth',.09,-170);},
   clear: ()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.15),i*110));},
+  oneup: ()=>{[659,784,1047,1319,1568].forEach((f,i)=>setTimeout(()=>beep(f,.13,'square',.05),i*85));},
   stun:  ()=>{beep(880,.1,'square',.04,-500);},
   low:   ()=>{beep(520,.10,'square',.05);setTimeout(()=>beep(380,.14,'square',.05),110);},
 };
@@ -670,7 +672,7 @@ function frame(now){
   if(state==='ready'){ if(stateT>1.4) go('play'); }
   else if(state==='play') updatePlay(dt);
   else if(state==='dying'){ if(stateT>1.8) afterDeath(); }
-  else if(state==='clear'){ if(stateT>2.8){ if(level>=MAXL) finishRun(true); else if(level%3===0) go('summary'); else nextLevel(); } }
+  else if(state==='clear'){ if(stateT>2.8){ if(level>=MAXL) finishRun(true); else if(level%3===0){ summaryLife=lives<MAXLIVES?1:0; lives+=summaryLife; if(summaryLife) setTimeout(()=>sfx.oneup(),500); go('summary'); } else nextLevel(); } }
   for(const p of puffs){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.s+=dt*14;}
   puffs=puffs.filter(p=>p.t>0);
   for(const f of floaters){f.t-=dt;f.y-=dt*30;}
@@ -729,13 +731,31 @@ function drawFlag(x,y){
   ctx.fillStyle='#fff'; ctx.fillRect(-2,-11+b,2,2);ctx.fillRect(-3,-10+b,4,1);ctx.fillRect(-2,-9+b,2,2);
   ctx.restore();
 }
-function drawTank(x,y){
-  ctx.save(); ctx.translate(x,y); ctx.scale(K,K);
-  ctx.fillStyle='#000'; ctx.fillRect(-11,-11,22,23);
-  ctx.fillStyle='#c0392b'; ctx.fillRect(-9,-9,18,19);
-  ctx.fillStyle='#222'; ctx.fillRect(-4,-14,8,5);
-  ctx.fillStyle='#fff'; ctx.font=F(13); ctx.textAlign='center'; ctx.fillText('D',0,5);
+/* «Terremoto» chileno: vino pipeño (ámbar) con helado de piña y granadina, con bombilla. Dibujo propio, centrado en (0,0). */
+function terremoto(){
+  for(let i=0;i<5;i++){                                                             // bombilla a rayas (detrás del helado)
+    const t0=i/5, t1=(i+1)/5; ctx.strokeStyle=i%2?'#ffffff':'#d6261c'; ctx.lineWidth=2.4; ctx.lineCap='butt';
+    ctx.beginPath(); ctx.moveTo(2+8*t0,-3-16*t0); ctx.lineTo(2+8*t1,-3-16*t1); ctx.stroke(); }
+  const glass=()=>{ ctx.beginPath(); ctx.moveTo(-7.5,-6); ctx.lineTo(7.5,-6); ctx.lineTo(5.5,11); ctx.lineTo(-5.5,11); ctx.closePath(); };
+  glass(); ctx.fillStyle='rgba(225,236,255,.40)'; ctx.fill();
+  ctx.save(); glass(); ctx.clip();                                                    // el vino, abajo
+  ctx.fillStyle='#e8952a'; ctx.fillRect(-8,1.5,16,11);
+  ctx.fillStyle='#f7c062'; ctx.fillRect(-8,1.5,16,2.2);
+  ctx.fillStyle='rgba(255,255,255,.3)'; ctx.fillRect(-5.6,3.6,1.8,6.4);
+  ctx.fillStyle='rgba(120,60,0,.25)'; ctx.fillRect(3.4,3.6,2.6,7);
   ctx.restore();
+  ctx.fillStyle='#f7f2e6'; ctx.beginPath(); ctx.ellipse(0,-4.8,7.4,3.6,0,0,7); ctx.fill();   // helado en el vaso
+  ctx.beginPath(); ctx.arc(-1,-9.6,5.6,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(4,-8.4,3.9,0,7); ctx.fill();   // bolas
+  ctx.fillStyle='rgba(190,178,150,.55)'; ctx.beginPath(); ctx.arc(-1,-7.6,5.6,.3,2.9); ctx.fill();
+  ctx.fillStyle='#d6261c';                                                            // granadina chorreando
+  ctx.fillRect(-4.4,-13.4,5.2,1.7); ctx.fillRect(-1.2,-12.2,1.7,4.6); ctx.fillRect(2.6,-11.2,1.7,5.4); ctx.fillRect(-5.4,-8.8,1.7,3.8); ctx.fillRect(5.4,-8.4,1.5,2.6);
+  glass(); ctx.strokeStyle='#d6dce8'; ctx.lineWidth=1; ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.65)'; ctx.fillRect(-7.5,-6.3,15,.9);
+}
+function drawTank(x,y){
+  const b=Math.sin(clock*3+x)*1.4;
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x,y+13*K,7*K,2*K,0,0,7); ctx.fill();
+  ctx.save(); ctx.translate(x,y+b-2); ctx.scale(K,K); terremoto(); ctx.restore();
 }
 const OR_='#eba126', ORD_='#c98412', WH_='#f3f0e8', GL_='#4a6a92';
 function busSide(){
@@ -915,7 +935,7 @@ function drawStats(x,y,w){
   paint(pad7(score),x+w-8,y+60,34,'#fff','right',{sp:1});
   paint('RÉCORD',x+8,y+84,15,ORA,'left',{sp:1}); paint(pad7(Math.max(hi,score)),x+w-8,y+86,24,'#ffd98a','right',{sp:1});
   redBox(x+6,y+94,w-12,28); paint('BANDERAS',x+16,y+116,19,'#fff','left',{sp:1}); paint(String(flags.length),x+w-16,y+117,26,'#fff','right');
-  paint('BENCINA',x+8,y+142,15,ORA,'left',{sp:1}); fuelBar(x+78,y+130,w-90,14,12);
+  paint('BENCINA',x+8,y+142,15,ORA,'left',{sp:1}); ctx.save(); ctx.translate(x+72,y+136); ctx.scale(.5,.5); terremoto(); ctx.restore(); fuelBar(x+90,y+130,w-102,14,11);
   paint('VIDAS',x+8,y+162,15,ORA,'left',{sp:1}); drawMicro(x+92,y+155,0,.5); paint('×'+livesLeft(),x+112,y+164,24,'#fff','left');
 }
 const HUDT=62;
@@ -926,7 +946,7 @@ function drawHUDTall(){
   ctx.fillStyle='#0d0d0f'; ctx.fillRect(0,25,LW,37); ctx.fillStyle='#fff'; ctx.fillRect(0,61,LW,2);
   paint(pad7(score),8,56,28,'#fff','left',{sp:.5});
   redBox(134,30,64,26); paint(flags.length+' BAND.',166,51,19,'#fff','center');
-  paint('BENCINA',206,39,12,ORA,'left',{sp:1}); fuelBar(206,42,88,13,11);
+  paint('BENCINA',206,39,12,ORA,'left',{sp:1}); ctx.save(); ctx.translate(262,33); ctx.scale(.42,.42); terremoto(); ctx.restore(); fuelBar(206,42,88,13,11);
   drawMicro(314,43,0,.42); paint('×'+livesLeft(),328,55,22,'#fff','left');
   ctx.globalAlpha=.78; drawRadar(LW-W*RS-10,HUDT+8); ctx.globalAlpha=1;
 }
@@ -1039,7 +1059,7 @@ function drawSummary(){
   const lv0=Math.max(1,level-2), rows=[];
   for(let n=lv0;n<=level;n++) if(runStats[n-1]) rows.push([n,runStats[n-1]]);
   const tot=rows.reduce((a,[,r])=>({pts:a.pts+r.pts,t:a.t+r.t,deaths:a.deaths+r.deaths,smokes:a.smokes+r.smokes,stuns:a.stuns+r.stuns}),{pts:0,t:0,deaths:0,smokes:0,stuns:0});
-  const bw=Math.min(LW-24,500), bx=(LW-bw)/2, hdr=60, boardH=hdr+28+64+(rows.length+2)*32+12+92+54, top=Math.round(Math.max(12,(CVH-boardH)*0.3));
+  const bw=Math.min(LW-24,500), bx=(LW-bw)/2, hdr=60, boardH=hdr+28+64+(rows.length+2)*32+12+92+54+34, top=Math.round(Math.max(12,(CVH-boardH)*0.3));
   drawRoadStrip(CVH-96);
   board(bx,top,bw,boardH,hdr,'¡TRAMO COMPLETADO!',tall?36:42);
   paint('NIVELES '+lv0+' A '+level+' DE '+MAXL,cx,top+hdr+22,17,'#fff','center',{sp:1});
@@ -1055,8 +1075,12 @@ function drawSummary(){
   paint('HUMO: '+tot.smokes+'  ·  PATRULLAS FRENADAS: '+tot.stuns,cx,yc,17,'#fff','center',{sp:1});
   paint('CHOQUES: '+tot.deaths,cx,yc+22,17,'#fff','center',{sp:1});
   if(tot.deaths===0) paint('¡RECORRIDO IMPECABLE!',cx,yc+46,19,ORA,'center',{sp:1});
+  const yv=yc+(tot.deaths===0?76:52);
+  if(summaryLife){ const pulse=1+Math.sin(clock*6)*.04; ctx.save(); ctx.translate(cx,yv-7); ctx.scale(pulse,pulse);
+    drawMicro(-92,0,0,.85); paint('¡VIDA EXTRA!  +1',-62,7,24,ORA,'left',{sp:1}); ctx.restore(); }
+  else paint('VIDAS AL MÁXIMO ('+MAXLIVES+')',cx,yv,18,'#aab','center',{sp:1});
   paint('PUNTAJE  '+pad7(score),cx,top+boardH-14,26,'#fff','center',{sp:1});
-  if(stateT>0.8&&Math.floor(clock*2)%2){ const w=210,h=30,x=cx-w/2,yy=CVH-96-38; redBox(x,yy,w,h); paint(touchUI?'TOCA PARA SEGUIR':'ENTER PARA SEGUIR',cx,yy+23,22,'#fff','center',{sp:1}); }
+  if(stateT>0.8&&Math.floor(clock*2)%2){ const w=210,h=30,x=cx-w/2,yy=CVH-70; redBox(x,yy,w,h); paint(touchUI?'TOCA PARA SEGUIR':'ENTER PARA SEGUIR',cx,yy+23,22,'#fff','center',{sp:1}); }
 }
 function draw(){
   ctx.fillStyle='#000'; ctx.fillRect(0,0,LW,CVH);
@@ -1086,9 +1110,8 @@ function draw(){
     const tw=Math.ceil(ctx.measureText(txt).width)+30, bx=Math.max(4,Math.min(VW-tw-4,sx-tw/2)), by=Math.max(tall?HUDT+8:4,sy-T*0.5-30);
     ctx.fillStyle=bl?'#c4120a':'#5a0b08'; ctx.fillRect(bx,by,tw,20);
     ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.strokeRect(bx+.5,by+.5,tw-1,19);
-    ctx.fillStyle='#fff'; ctx.fillRect(bx+6,by+4,8,12); ctx.fillStyle='#c4120a'; ctx.fillRect(bx+8,by+6,4,3);   // surtidor
-    ctx.fillStyle='#fff'; ctx.fillRect(bx+14,by+6,3,2); ctx.fillRect(bx+16,by+6,1,7);
-    ctx.fillText(txt,bx+22,by+14);
+    ctx.save(); ctx.translate(bx+11,by+13); ctx.scale(.5,.5); terremoto(); ctx.restore();                       // terremoto
+    ctx.fillStyle='#fff'; ctx.fillText(txt,bx+22,by+14);
     ctx.fillStyle=bl?'#c4120a':'#5a0b08'; ctx.beginPath(); ctx.moveTo(sx-5,by+20); ctx.lineTo(sx+5,by+20); ctx.lineTo(sx,by+27); ctx.fill();
     if(crit){ ctx.strokeStyle=`rgba(255,40,30,${bl?.55:.15})`; ctx.lineWidth=8; ctx.strokeRect(4,4,VW-8,VH-8); }
   }
@@ -1115,7 +1138,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
       r.update(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) r.update(); }); }).catch(()=>{}); }catch(e){} });
 }
 // se expone para pruebas
-window.__mx = {get enemies(){return enemies}, get player(){return player}, get music(){return {mode:musicMode,on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusicMode, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
+window.__mx = {get tanks(){return tanks}, setLives(v){lives=v}, get enemies(){return enemies}, get player(){return player}, get music(){return {mode:musicMode,on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusicMode, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>
 </body>
 </html>

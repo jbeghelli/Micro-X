@@ -57,9 +57,11 @@ La dirección queda en `https://jbeghelli.github.io/micro-x/`. Cada `git push` a
 - **Ajuste de pantalla móvil:** el área de juego usa el tamaño real visible (con barra de Chrome, muescas y barra de gestos).
 
 ## Música
-Opción **MÚSICA** del menú: `EN UN LARGO TOUR` (por defecto), `CUMBIA` o `NO`. Se genera en el dispositivo con WebAudio, sin archivos.
-- `EN UN LARGO TOUR` es una adaptación al sonido tipo Rally-X (onda de pulso para la melodía, bajo triangular y arpegio suave) de «En un largo tour» (Sol y Lluvia; partituras de Amaro Labra y Christopher Romero T., ♩=100, Mi menor; acordes Em · Bm · A · Em · Bm · A · Em). **La canción pertenece a sus autores**: si el juego se comparte públicamente, conviene pedirles permiso o reemplazar el tema por una composición propia o de dominio público.
+Se genera en el dispositivo con WebAudio, sin archivos. El menú tiene **TEMA MENÚ** y **TEMA JUEGO** (se pueden elegir distintos); al elegir «TEMA JUEGO» en el menú suena como vista previa. El botón de parlante silencia todo.
+- **Cumbia**: composición propia.
+- **Obras de dominio público**, escritas aquí como notas (sin grabaciones de terceros): Para Elisa y Quinta sinfonía (Beethoven), Himno a la Alegría (Beethoven) en cinco estilos (normal, marcha, galope, cumbia y solemne, para probar qué ritmo va mejor), En la gruta del rey de la montaña (Grieg, acelera en cada vuelta), Canon (Pachelbel) y Tocata en re menor (Bach).
 - La música se acelera cuando queda poca bencina.
+- Aviso: las melodías clásicas son de dominio público, pero **un arreglo o una grabación moderna sí pueden tener derechos**. Aquí todo se sintetiza desde cero. Del Himno Nacional de Chile hay normas de respeto a los símbolos patrios; está pendiente (ver `ROADMAP.md`).
 
 ## Patrullas de perfil
 Las radiopatrullas de Carabineros (sedán verde con techo blanco, panel blanco en la puerta delantera con el escudo y «CARABINEROS DE CHILE», baliza amarilla en el techo y llantas de aleación, según foto de referencia) ahora se ven como la micro: de lado al ir a izquierda/derecha, de frente al bajar y de atrás al subir.

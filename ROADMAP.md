@@ -9,3 +9,6 @@ Notas de diseño: avisar 1–2 s antes (sacudida + sonido), que las grietas nunc
 - Micros de otros recorridos como aspecto (skin) de la micro.
 - Versión extendida de la música: la melodía cambia en cada vuelta.
 - Botón «Compartir» en el menú.
+
+## Himno Nacional de Chile (pendiente)
+Probar el himno en distintos tempos y ritmos para el menú de inicio, con el «laboratorio de estilos» que ya existe (marcha, galope, cumbia, solemne), cuidando que sea respetuoso. Falta la partitura oficial (música de Ramón Carnicer, dominio público) para transcribirla sin errores.

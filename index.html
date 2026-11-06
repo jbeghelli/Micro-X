@@ -166,7 +166,7 @@ let field = null, fieldKey = -1, smokeCD = 0, invuln = 0, puffT = 0, roadCount =
 let startTile = {x:0,y:0}, enemySpawns = [];
 
 const FONT='Anton,"Arial Narrow","Roboto Condensed",Impact,sans-serif', F=px=>px+'px '+FONT;
-const VERSION='2026.11.06-d';
+const VERSION='2026.11.06-e';
 try{ document.fonts.load('20px Anton'); }catch(e){}
 const INK='#111', ORA='#f2a516', RED='#d6261c';
 const pad7=n=>String(n).padStart(7,'0');
@@ -188,30 +188,51 @@ function beep(f,d,type='square',v=0.05,slide=0){
   g.gain.setValueAtTime(v,a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);
   o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+d);
 }
-/* ---------- música (se genera en el dispositivo; sin archivos) ----------
-   1 = cumbia chiptune (composición propia) · 2 = «En un largo tour» (Sol y Lluvia, A. Labra), adaptada a sonido tipo Rally-X */
-const MUSIC_NAMES=['NO','CUMBIA','EN UN LARGO TOUR'];
-let musicMode=2; try{ const v=localStorage.getItem('microx_music'); if(v!==null) musicMode=Math.max(0,Math.min(2,+v||0)); }catch(e){}
-let musicOn=musicMode>0, lastMusic=musicMode||2;
-let mGain=null, nBuf=null, mStep=0, mNext=0, mTimer=null;
+/* ---------- música: obras de dominio público + una cumbia propia, sintetizadas en el dispositivo (sin archivos) ----------
+   Cada pieza se escribe como texto «nota:duración» (paso = semicorchea) y se toca en un estilo (chip, marcha, galope, cumbia, solemne, pedal). */
+const NB={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+function midiOf(n){ const m=/^([A-G])(#|b)?(-?\d)$/.exec(n); if(!m) throw new Error('nota '+n); return 12*(+m[3]+1)+NB[m[1]]+(m[2]==='#'?1:m[2]==='b'?-1:0); }
+function seqOf(str){ const ev=[]; let st=0; for(const tok of str.trim().split(/\s+/)){ const [n,l]=tok.split(':'); const len=+l||1; if(n!=='R') ev.push([st,midiOf(n),len]); st+=len; } return {ev,len:st}; }
+const CH={C:[48,52,55],G:[43,47,50],Am:[45,48,52],E:[40,44,47],D:[50,54,57],A:[45,49,52],Bm:[47,50,54],'F#m':[42,45,49],Dm:[50,53,57],Cm:[48,51,55]};
+function harmOf(str){ const list=[]; let st=0; for(const tok of str.trim().split(/\s+/)){ const [c,l]=tok.split(':'); list.push({ch:c,start:st,len:+l}); st+=+l; } return {list,len:st}; }
+function mkTrack(o){
+  const L=seqOf(o.lead), H=harmOf(o.harm), len=Math.ceil(Math.max(L.len,H.len)/16)*16;
+  const leadAt=new Array(len).fill(null); L.ev.forEach(([st,n,l])=>{ if(st<len) leadAt[st]=[n,l]; });
+  const hAt=new Array(len).fill(null); for(const h of H.list) for(let st=h.start;st<h.start+h.len&&st<len;st++) hAt[st]={h,off:st-h.start};
+  let last=null; for(let st=0;st<len;st++){ if(hAt[st]) last=hAt[st]; else if(last) hAt[st]={h:last.h,off:st-last.h.start}; }
+  return Object.assign({len,leadAt,hAt,loops:0},o);
+}
+// «Himno a la Alegría» (Beethoven, dominio público): dos frases de 4 compases, en Do mayor
+const ALEGRIA='E5:4 E5:4 F5:4 G5:4 G5:4 F5:4 E5:4 D5:4 C5:4 C5:4 D5:4 E5:4 E5:6 D5:2 D5:8 E5:4 E5:4 F5:4 G5:4 G5:4 F5:4 E5:4 D5:4 C5:4 C5:4 D5:4 E5:4 D5:6 C5:2 C5:8';
+const ALEGRIA_H='C:16 G:16 C:16 G:16 C:16 G:16 C:16 G:8 C:8';
+const TRACKS=[
+  {name:'NO'},
+  {name:'CUMBIA',custom:'cumbia',bpm:104,len:64,loops:0},
+  mkTrack({name:'PARA ELISA',bpm:138,style:'chip',                                                      // Beethoven
+    lead:'E5:1 D#5:1 E5:1 D#5:1 E5:1 B4:1 D5:1 C5:1 A4:3 R:1 C4:1 E4:1 A4:1 B4:3 R:1 E4:1 G#4:1 B4:1 C5:3 R:1 E4:1 E5:1 D#5:1 E5:1 D#5:1 E5:1 B4:1 D5:1 C5:1 A4:3 R:1 C4:1 E4:1 A4:1 B4:3 R:1 E4:1 C5:1 B4:1 A4:3 R:5',
+    harm:'Am:19 E:8 Am:12 Am:7 E:3 Am:15'}),
+  mkTrack({name:'ALEGRÍA',bpm:120,style:'chip',lead:ALEGRIA,harm:ALEGRIA_H}),
+  mkTrack({name:'ALEGRÍA · MARCHA',bpm:112,style:'march',lead:ALEGRIA,harm:ALEGRIA_H}),
+  mkTrack({name:'ALEGRÍA · GALOPE',bpm:160,style:'gallop',lead:ALEGRIA,harm:ALEGRIA_H}),
+  mkTrack({name:'ALEGRÍA · CUMBIA',bpm:98,style:'cumbia',lead:ALEGRIA,harm:ALEGRIA_H}),
+  mkTrack({name:'ALEGRÍA · SOLEMNE',bpm:62,style:'solemn',duty:.5,vol:.05,legato:1,lead:ALEGRIA,harm:ALEGRIA_H}),
+  mkTrack({name:'REY DE LA MONTAÑA',bpm:112,style:'pedal',accel:true,duty:.25,                          // Grieg, Peer Gynt
+    lead:'B4:2 C#5:2 D5:2 E5:2 F#5:2 D5:2 F#5:4 F5:2 C#5:2 F5:4 E5:2 C5:2 E5:4 B4:2 C#5:2 D5:2 E5:2 F#5:2 D5:2 F#5:2 B5:2 A5:2 F#5:2 D5:2 F#5:2 A5:4 R:4',
+    harm:'Bm:64'}),
+  mkTrack({name:'CANON (PACHELBEL)',bpm:76,style:'chip',                                                  // Pachelbel: línea superior y una variación propia
+    lead:'F#5:8 E5:8 D5:8 C#5:8 B4:8 A4:8 B4:8 C#5:8 F#5:2 A5:2 F#5:2 D5:2 E5:2 A5:2 E5:2 C#5:2 D5:2 F#5:2 D5:2 B4:2 C#5:2 F#5:2 C#5:2 A4:2 B4:2 D5:2 B4:2 G4:2 A4:2 D5:2 F#5:2 D5:2 B4:2 D5:2 B4:2 G4:2 C#5:2 E5:2 C#5:2 A4:2',
+    harm:'D:8 A:8 Bm:8 F#m:8 G:8 D:8 G:8 A:8 D:8 A:8 Bm:8 F#m:8 G:8 D:8 G:8 A:8'}),
+  mkTrack({name:'TOCATA (BACH)',bpm:96,style:'solemn',duty:.5,vol:.055,legato:1,
+    lead:'A5:2 G5:2 A5:12 R:4 G5:2 F5:2 E5:2 D5:2 C#5:2 D5:12 R:2 A4:2 G4:2 A4:12 R:4 G4:2 F4:2 E4:2 D4:2 C#4:2 D4:12 R:4',
+    harm:'Dm:96'}),
+  mkTrack({name:'QUINTA (BEETHOVEN)',bpm:108,style:'chip',lead:'R:2 G5:2 G5:2 G5:2 Eb5:12 R:2 F5:2 F5:2 F5:2 D5:12',harm:'Cm:20 G:28'}),
+];
+let musicMuted=false, musicTitle=3, musicGame=1;
+try{ musicMuted=localStorage.getItem('microx_mute')==='1';
+  const t=localStorage.getItem('microx_mtitle'), g=localStorage.getItem('microx_mgame');
+  if(t!==null) musicTitle=Math.max(0,Math.min(TRACKS.length-1,+t||0)); if(g!==null) musicGame=Math.max(0,Math.min(TRACKS.length-1,+g||0)); }catch(e){}
+let mGain=null, nBuf=null, mStep=0, mNext=0, mTimer=null, curTrack=-1;
 const MF=n=>440*Math.pow(2,(n-69)/12);
-// --- cumbia ---
-const BASS_R=[45,50,52,45], BASS_F=[52,57,59,52];
-const MEL=[69,0,0,72, 0,71,69,0, 67,0,69,0, 0,0,64,0,
-           65,0,0,69, 0,67,65,0, 62,0,65,0, 0,0,0,0,
-           64,0,0,68, 0,71,68,0, 64,0,68,0, 0,0,0,0,
-           69,0,72,0, 71,0,69,0, 67,0,64,0, 69,0,0,0];
-// --- «En un largo tour» (4/4, ♩=100, Mi menor). Cada evento: [paso de semicorchea, nota MIDI, duración en pasos]
-const TOUR_LEN=112;                                  // 7 compases × 16 semicorcheas
-/* Fuentes: partitura de piano (A. Labra) y hoja con cifrado (C. Romero T.) */
-const TOUR_CH=[[52,55,59],[47,50,54],[45,49,52],[52,55,59],[47,50,54],[45,49,52],[52,55,59]];   // Em Bm A Em Bm A Em
-const TOUR_LEAD=(()=>{
-  const m=new Array(TOUR_LEN).fill(null), put=(st,n,l)=>{ m[st]=[n,l]; };
-  const half=(o,r)=>{ put(o+1,r[0],2); put(o+3,r[0],1); put(o+4,r[1],2); put(o+6,r[2],2); };   // silencio · corchea · semicorchea · corchea · corchea
-  [[0,[71,76,79]],[1,[74,78,81]],[2,[69,73,76]],[3,[71,76,79]],[4,[74,78,81]]].forEach(([b,r])=>{ half(b*16,r); half(b*16+8,r); });
-  const o=80; put(o+1,69,2); put(o+3,69,1); put(o+4,73,2); put(o+6,76,1); put(o+7,69,2); put(o+9,69,2); put(o+11,69,1); put(o+12,73,2); put(o+14,76,2);   // compás 6
-  put(96,76,8);                                     // compás 7: «mi» en blanca y silencio de blanca
-  return m; })();
 const pulseCache={};
 function pulse(d){
   if(pulseCache[d]) return pulseCache[d];
@@ -223,8 +244,8 @@ function mTone(type,f,t,dur,vol){
   const a=actx, o=a.createOscillator(), g=a.createGain();
   if(typeof type==='string') o.type=type; else o.setPeriodicWave(type);
   o.frequency.value=f;
-  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.connect(g); g.connect(mGain); o.start(t); o.stop(t+dur+0.03);
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(dur,0.03));
+  o.connect(g); g.connect(mGain); o.start(t); o.stop(t+Math.max(dur,0.03)+0.03);
 }
 function mNoise(t,dur,vol,type,freq){
   const a=actx, src=a.createBufferSource(); src.buffer=nBuf;
@@ -232,12 +253,18 @@ function mNoise(t,dur,vol,type,freq){
   g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   src.connect(f); f.connect(g); g.connect(mGain); src.start(t); src.stop(t+dur+0.03);
 }
-function mKick(t){
+function mKick(t,v=0.5){
   const a=actx, o=a.createOscillator(), g=a.createGain(); o.type='sine';
   o.frequency.setValueAtTime(140,t); o.frequency.exponentialRampToValueAtTime(45,t+0.13);
-  g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+  g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
   o.connect(g); g.connect(mGain); o.start(t); o.stop(t+0.18);
 }
+// cumbia original (composición propia)
+const BASS_R=[45,50,52,45], BASS_F=[52,57,59,52];
+const MEL=[69,0,0,72, 0,71,69,0, 67,0,69,0, 0,0,64,0,
+           65,0,0,69, 0,67,65,0, 62,0,65,0, 0,0,0,0,
+           64,0,0,68, 0,71,68,0, 64,0,68,0, 0,0,0,0,
+           69,0,72,0, 71,0,69,0, 67,0,64,0, 69,0,0,0];
 function cumbiaStep(i,t,sd){
   const bar=(i>>4)&3, s=i&15;
   const note=MEL[i]; if(note) mTone('square',MF(note),t,sd*1.9,0.045);
@@ -247,39 +274,64 @@ function cumbiaStep(i,t,sd){
   if(s===4||s===12) mNoise(t,0.09,0.12,'bandpass',1800);
   if(s%2===0) mNoise(t,0.035,s%4===0?0.075:0.04,'highpass',5500);
 }
-function tourStep(i,t,sd){
-  const b=(i/16)|0, s=i&15, ch=TOUR_CH[b], ev=TOUR_LEAD[i];
-  if(ev) mTone(pulse(0.25),MF(ev[0]),t,ev[1]*sd*0.94,0.06);                    // melodía: onda de pulso 25 %
-  if(b===6){                                                                    // compás final: acorde sostenido
-    if(s===0){ mTone('triangle',MF(ch[0]),t,sd*7,0.15); mTone(pulse(0.5),MF(67),t,sd*7,0.025); mTone(pulse(0.5),MF(71),t,sd*7,0.025); }
-    return; }
-  if(s%4===0) mTone('triangle',MF(ch[0]),t,sd*3,0.15);                          // bajo: raíz en cada tiempo
-  if(s%4===2) mTone(pulse(0.5),MF(ch[1+((s>>2)&1)]+12),t,sd*1.7,0.022);        // arpegio suave del acorde
+function trackStep(T_,i,t,sd){
+  const ev=T_.leadAt[i];
+  if(ev) mTone(pulse(T_.duty||0.25),MF(ev[0]),t,ev[1]*sd*(T_.legato||0.94),T_.vol||0.06);          // melodía
+  const hh=T_.hAt[i]; if(!hh) return;
+  const ch=CH[hh.h.ch], s=i%16, rem=hh.h.len-hh.off;
+  switch(T_.style){
+    case 'march':                                                                                      // marcha: bajo en 1 y 3, acordes y caja en 2 y 4
+      if(s===0||s===8){ mTone('triangle',MF(ch[0]),t,sd*3,.15); mKick(t); }
+      if(s===4||s===12){ mTone(pulse(.5),MF(ch[1]+12),t,sd*1.5,.03); mTone(pulse(.5),MF(ch[2]+12),t,sd*1.5,.03); mNoise(t,.08,.1,'bandpass',1800); }
+      if(s%4===2) mNoise(t,.03,.04,'highpass',6000); break;
+    case 'gallop':                                                                                     // galope: bajo en corcheas
+      if(s%2===0) mTone('triangle',MF(ch[0]),t,sd*1.6,.14);
+      if(s%4===2) mTone(pulse(.5),MF(ch[1+((s>>2)&1)]+12),t,sd*1.2,.025);
+      if(s===0||s===8) mKick(t); if(s%4===2) mNoise(t,.03,.05,'highpass',6000); break;
+    case 'cumbia':
+      if(s===0||s===8||s===3||s===11) mTone('triangle',MF(ch[0]),t,sd*2.2,.16);
+      if(s===6||s===14) mTone('triangle',MF(ch[2]),t,sd*2.2,.16);
+      if(s===0||s===8) mKick(t); if(s===4||s===12) mNoise(t,.09,.12,'bandpass',1800);
+      if(s%2===0) mNoise(t,.035,s%4===0?.075:.04,'highpass',5500); break;
+    case 'solemn':                                                                                     // solemne: acorde sostenido y timbal suave
+      if(hh.off===0||s===0){ const l=Math.min(rem,16-s)*sd*.96;
+        mTone('triangle',MF(ch[0]),t,l,.15); mTone(pulse(.5),MF(ch[1]+12),t,l,.02); mTone(pulse(.5),MF(ch[2]+12),t,l,.02); if(s===0) mKick(t,.22); } break;
+    case 'pedal':                                                                                      // pedal: pulso constante en el bajo
+      if(s%2===0) mTone('triangle',MF(ch[0]),t,sd*1.5,.13); if(s===0) mKick(t,.3); break;
+    default:                                                                                           // chip: bajo en cada tiempo y arpegio suave
+      if(s%4===0) mTone('triangle',MF(ch[0]),t,sd*3,.15);
+      if(s%4===2) mTone(pulse(.5),MF(ch[1+((s>>2)&1)]+12),t,sd*1.7,.022);
+  }
 }
 const tempoMul=()=>state!=='play'?1:(fuel<=0?1.35:fuel<12?1.28:fuel<30?1.14:1);
+function musicIdx(){ return state==='title'?(menuSel===6?musicGame:musicTitle):musicGame; }   // en el menú, la fila «TEMA JUEGO» se escucha como vista previa
 function musicTick(){
   const a=actx; if(!a||!mGain) return;
+  const idx=musicMuted?0:musicIdx();
+  if(idx!==curTrack){ curTrack=idx; mStep=0; mNext=a.currentTime+0.06; if(TRACKS[idx]) TRACKS[idx].loops=0; }
+  if(idx===0) return;
   mGain.gain.setTargetAtTime(state==='dying'?0.08:(state==='summary'||state==='title'||state==='over'||state==='win')?0.7:1,a.currentTime,0.12);
+  const T_=TRACKS[idx];
   if(mNext<a.currentTime) mNext=a.currentTime+0.02;
-  const tour=musicMode===2, len=tour?TOUR_LEN:64, sd=60/((tour?100:104)*tempoMul())/4;
-  while(mNext<a.currentTime+0.18){ if(tour) tourStep(mStep,mNext,sd); else cumbiaStep(mStep,mNext,sd); mNext+=sd; mStep=(mStep+1)%len; }
+  const acc=T_.accel?Math.min(1.45,1+0.07*T_.loops):1, sd=60/(T_.bpm*tempoMul()*acc)/4;
+  while(mNext<a.currentTime+0.18){
+    if(T_.custom==='cumbia') cumbiaStep(mStep,mNext,sd); else trackStep(T_,mStep,mNext,sd);
+    mNext+=sd; if(++mStep>=T_.len){ mStep=0; T_.loops++; } }
 }
 function startMusic(){
-  const a=audio(); if(!a||mTimer||!musicOn) return;
+  const a=audio(); if(!a||mTimer) return;
   try{ if(a.state==='suspended') a.resume(); }catch(e){}
   if(!mGain){ mGain=a.createGain(); mGain.gain.value=0.55; mGain.connect(a.destination);
     nBuf=a.createBuffer(1,a.sampleRate*0.3,a.sampleRate); const d=nBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
-  mNext=a.currentTime+0.05; mStep=0;
+  mNext=a.currentTime+0.05; mStep=0; curTrack=-1;
   mTimer=setInterval(()=>{ if(paused||document.hidden){ mNext=0; return; } musicTick(); },40);
 }
-function stopMusic(){ if(mTimer){ clearInterval(mTimer); mTimer=null; } }
-function setMusicMode(m){
-  musicMode=m; musicOn=m>0; if(m>0) lastMusic=m;
-  try{localStorage.setItem('microx_music',String(m));}catch(e){}
-  document.body.classList.toggle('muted',!musicOn);
-  stopMusic(); if(musicOn) startMusic();
+function setTrack(which,i){
+  i=(i+TRACKS.length)%TRACKS.length;
+  if(which==='title'){ musicTitle=i; try{localStorage.setItem('microx_mtitle',i);}catch(e){} }
+  else { musicGame=i; try{localStorage.setItem('microx_mgame',i);}catch(e){} }
 }
-function setMusic(v){ setMusicMode(v?lastMusic:0); }
+function toggleMute(){ musicMuted=!musicMuted; try{localStorage.setItem('microx_mute',musicMuted?'1':'0');}catch(e){} document.body.classList.toggle('muted',musicMuted); }
 function unlockAudio(){ audio(); startMusic(); }
 
 const sfx = {
@@ -466,8 +518,8 @@ pad.addEventListener('pointermove',e=>{ if(e.pointerId===padPid) padSet(padHit(e
 ['pointerup','pointercancel'].forEach(ev=>pad.addEventListener(ev,e=>{ if(e.pointerId!==padPid)return; padPid=null; padSet(-1); }));
 
 const muteBtn=document.getElementById('mutebtn');
-muteBtn.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); unlockAudio(); setMusic(!musicOn); });
-document.body.classList.toggle('muted',!musicOn);
+muteBtn.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); unlockAudio(); toggleMute(); });
+document.body.classList.toggle('muted',musicMuted);
 const pauseBtn=document.getElementById('pausebtn');
 pauseBtn.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); unlockAudio(); setPaused(!paused); });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) setPaused(true); });
@@ -502,20 +554,22 @@ function startIfNeeded(){
   if((state==='over'||state==='win') && stateT>1){ go('title'); }
   else if(state==='summary' && stateT>0.8){ nextLevel(); }
 }
-const MENU_N = 6;
+const MENU_N = 7;
 function menuActivate(){
   if(menuSel===0) startGame();
   else if(menuSel===1) editBuf='';
   else if(menuSel===2) startLevel = startLevel%MAXL+1;
   else if(menuSel===3) setZoom(zoomI+1);
   else if(menuSel===4) setCtl(1-ctlMode);
-  else setMusicMode((musicMode+1)%3);
+  else if(menuSel===5) setTrack('title',musicTitle+1);
+  else setTrack('game',musicGame+1);
 }
 function menuAdjust(d){
   if(menuSel===2) startLevel=(startLevel-1+d+MAXL)%MAXL+1;
   else if(menuSel===3) setZoom(zoomI+d);
   else if(menuSel===4) setCtl(1-ctlMode);
-  else if(menuSel===5) setMusicMode((musicMode+d+3)%3);
+  else if(menuSel===5) setTrack('title',musicTitle+d);
+  else if(menuSel===6) setTrack('game',musicGame+d);
 }
 function menuKey(e){
   if(editBuf!==null){
@@ -1144,7 +1198,8 @@ function menuRows(){
     {label:'NIVEL INICIAL',val:'PAR. '+startLevel,adj:true},
     {label:'ZOOM',val:ZNAMES[zoomI],adj:true},
     {label:'CONTROL',val:ctlMode?'CRUCETA':'DESLIZAR',adj:true},
-    {label:'MÚSICA',val:MUSIC_NAMES[musicMode],adj:true}];
+    {label:'TEMA MENÚ',val:TRACKS[musicTitle].name,adj:true},
+    {label:'TEMA JUEGO',val:TRACKS[musicGame].name,adj:true}];
 }
 function titleLayout(){
   if(tall){ const bw=LW-24, bx=12, hdr=74, dy=44, boardH=hdr+28+MENU_N*dy+40, top=Math.round(Math.max(24,(LH*0.82-boardH)/2));
@@ -1268,7 +1323,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
       r.update(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) r.update(); }); }).catch(()=>{}); }catch(e){} });
 }
 // se expone para pruebas
-window.__mx = {get dogs(){return dogs}, get lomos(){return lomos}, get obras(){return baches}, get slowT(){return slowT}, get tanks(){return tanks}, setLives(v){lives=v}, get enemies(){return enemies}, get player(){return player}, get music(){return {mode:musicMode,on:musicOn,timer:!!mTimer,state:actx&&actx.state}}, setMusicMode, setMusic, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
+window.__mx = {get dogs(){return dogs}, get lomos(){return lomos}, get obras(){return baches}, get slowT(){return slowT}, get tanks(){return tanks}, setLives(v){lives=v}, get enemies(){return enemies}, get player(){return player}, get music(){return {title:musicTitle,game:musicGame,muted:musicMuted,timer:!!mTimer,state:actx&&actx.state}}, setTrack, toggleMute, get tracks(){return TRACKS}, get empty(){return emptyT}, setFace(f){player.face=f}, get paused(){return paused}, get startLevel(){return startLevel}, clear:levelClear, setFuel(v){fuel=v}, get dir(){return player&&player.dir}, get fuel(){return fuel}, get clouds(){return clouds.length}, toTitle(){go("title")}, get held(){return held.slice()}, get state(){return state}, get score(){return score}, get flags(){return flags&&flags.length}, get lives(){return lives}, press, start:startGame, setupLevel, setZoom, finish:finishRun, get level(){return level}, set level(v){level=v}, get hi(){return hi}};
 </script>
 </body>
 </html>

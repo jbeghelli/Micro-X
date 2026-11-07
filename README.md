@@ -79,3 +79,6 @@ Los baches se reemplazaron por tres obstáculos, que crecen de a poco entre el n
 - **Obras en la calzada** (pozo con tablón, valla a rayas con lámpara y conos): bloquean el paso. Si chocas, pierdes una vida (4 en el nivel 1 → 20 en el 20). Las patrullas las esquivan.
 - **Lomos de toro** (franja amarilla y negra en tramos rectos): no matan; te frenan a la mitad por 1 segundo, y también frenan a las patrullas (4 → 14).
 - **Quiltros** (perros callejeros): caminan por las calles y a veces se detienen. Si los tocas pierdes 18 de bencina y 100 puntos, y te frenas un momento; el perro sale corriendo. Cuando un perro se cruza con una patrulla, la deja detenida 1,2 s (2 → 6).
+
+## Otro juego en este repositorio
+`chanchitos/` contiene **Chanchitos de tierra**, un juego educativo para niños (corredor + terrario). Ver `chanchitos/README.md`.

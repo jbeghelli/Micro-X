@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<title>Control TV</title>
+<style>
+:root{--bg:#0f1115;--card:#1a1d24;--card2:#242832;--fg:#e8ebf0;--mut:#8b93a1;--acc:#4da3ff;--red:#ff5d5d}
+@media (prefers-color-scheme:light){:root{--bg:#f1f3f6;--card:#fff;--card2:#e6e9ef;--fg:#14171c;--mut:#5d6573;--acc:#1a73e8}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif;padding:12px 16px calc(24px + env(safe-area-inset-bottom));max-width:440px;margin-inline:auto}
+button{font:inherit;color:inherit;border:0;background:var(--card);border-radius:16px;min-height:56px;cursor:pointer;touch-action:manipulation;transition:transform .06s,background .1s}
+button:active,button.on{transform:scale(.94);background:var(--card2)}
+.row{display:grid;gap:10px;margin-bottom:10px}
+.c2{grid-template-columns:repeat(2,1fr)}.c3{grid-template-columns:repeat(3,1fr)}.c4{grid-template-columns:repeat(4,1fr)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+h1{font-size:15px;margin:0;color:var(--mut);font-weight:600}
+#st{font-size:13px;color:var(--mut)}
+.pwr{background:var(--red);color:#fff;width:56px}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--card);border-radius:50%/40%;padding:14px;margin:6px 0 12px}
+.pad button{background:var(--card2);min-height:64px;font-size:22px}
+.pad .ok{background:var(--acc);color:#fff;font-weight:700;font-size:16px}
+.vol{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.vol .box{background:var(--card);border-radius:16px;display:grid;grid-template-rows:1fr 1fr 1fr;gap:6px;padding:6px}
+.vol .box button{background:var(--card2);min-height:48px;font-size:20px}
+.vol .lbl{display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:13px}
+.apps button{font-weight:600}
+h2{font-size:13px;color:var(--mut);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.06em}
+.macro{background:var(--acc);color:#fff;font-weight:600}
+.err{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="top"><h1>📺 Samsung 55" · Javier</h1><span id="st">listo</span></div>
+
+<div class="row c4">
+  <button class="pwr" data-wake>⏻ On</button>
+  <button data-k="KEY_HDMI">Entrada</button>
+  <button data-k="KEY_SOURCE">Fuente</button>
+  <button class="pwr" data-k="KEY_POWER">⏻ Off</button>
+</div>
+
+<div class="pad">
+  <span></span><button data-k="KEY_UP">▲</button><span></span>
+  <button data-k="KEY_LEFT">◀</button><button class="ok" data-k="KEY_ENTER">OK</button><button data-k="KEY_RIGHT">▶</button>
+  <span></span><button data-k="KEY_DOWN">▼</button><span></span>
+</div>
+
+<div class="row c3">
+  <button data-k="KEY_RETURN">↩ Atrás</button>
+  <button data-k="KEY_HOME">⌂ Inicio</button>
+  <button data-k="KEY_MENU">☰ Menú</button>
+</div>
+
+<div class="vol">
+  <div class="box"><button data-k="KEY_VOLUP" data-hold>＋</button><div class="lbl">VOL</div><button data-k="KEY_VOLDOWN" data-hold>－</button></div>
+  <div class="box"><button data-k="KEY_CHUP" data-hold>＋</button><div class="lbl">CH</div><button data-k="KEY_CHDOWN" data-hold>－</button></div>
+</div>
+<div class="row c4">
+  <button data-k="KEY_MUTE">🔇</button>
+  <button data-k="KEY_REWIND">⏪</button>
+  <button data-k="KEY_PLAY">⏯</button>
+  <button data-k="KEY_FF">⏩</button>
+</div>
+
+<h2>Apps</h2><div class="row c2 apps" id="apps"></div>
+<h2>Macros</h2><div class="row c2" id="macros"></div>
+
+<h2>Números</h2>
+<div class="row c3" id="nums"></div>
+
+<script>
+const st=document.getElementById('st');
+const vib=()=>navigator.vibrate&&navigator.vibrate(12);
+async function api(path,body){
+  try{
+    const r=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+    const j=await r.json();
+    st.className=j.ok?'':'err'; st.textContent=j.ok?'✓ enviado':'⚠ '+j.error;
+  }catch(e){st.className='err';st.textContent='⚠ sin conexión al servidor'}
+}
+const key=(k,repeat)=>api('key',{key:k,repeat});
+function bind(el,fn,hold){
+  let t,iv;
+  const stop=()=>{clearTimeout(t);clearInterval(iv)};
+  el.addEventListener('pointerdown',e=>{e.preventDefault();vib();fn();
+    if(hold){t=setTimeout(()=>{iv=setInterval(fn,180)},400)}});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,stop));
+}
+document.querySelectorAll('[data-k]').forEach(b=>bind(b,()=>key(b.dataset.k),b.hasAttribute('data-hold')));
+document.querySelectorAll('[data-wake]').forEach(b=>bind(b,()=>api('wake')));
+for(let i=1;i<=9;i++)add('nums',String(i),()=>key('KEY_'+i));
+add('nums','⏎',()=>key('KEY_ENTER'));add('nums','0',()=>key('KEY_0'));add('nums','Info',()=>key('KEY_INFO'));
+function add(id,label,fn,cls){const b=document.createElement('button');b.textContent=label;if(cls)b.className=cls;bind(b,fn);document.getElementById(id).appendChild(b)}
+fetch('/api/config').then(r=>r.json()).then(c=>{
+  c.apps.forEach(a=>add('apps',a.name,()=>api('app',{id:a.id})));
+  c.macros.forEach(m=>add('macros',m,()=>api('macro',{name:m}),'macro'));
+  if(c.mock)st.textContent='modo simulado';
+});
+</script>
+</body>
+</html>

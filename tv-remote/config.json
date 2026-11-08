@@ -1,0 +1,20 @@
+{
+  "tv_ip": "192.168.1.50",
+  "tv_mac": "AA:BB:CC:DD:EE:FF",
+  "tv_name": "Control Javier",
+  "port": 8080,
+  "apps": [
+    {"name": "Netflix",  "id": "11101200001"},
+    {"name": "YouTube",  "id": "111299001912"},
+    {"name": "Prime",    "id": "3201512006785"},
+    {"name": "Disney+",  "id": "3201901017250"}
+  ],
+  "macros": [
+    {"name": "Modo cine", "steps": [
+      {"key": "KEY_HDMI"}, {"wait": 1.5}, {"key": "KEY_VOLDOWN", "repeat": 5}
+    ]},
+    {"name": "Dormir", "steps": [
+      {"key": "KEY_MUTE"}, {"wait": 1}, {"key": "KEY_POWER"}
+    ]}
+  ]
+}
